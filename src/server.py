@@ -4,6 +4,7 @@ import os
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 load_dotenv()
 
@@ -12,6 +13,12 @@ mcp = FastMCP(
     host=os.getenv("MCP_HOST", "0.0.0.0"),
     port=int(os.getenv("MCP_PORT", "8000")),
 )
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health(request):
+    return JSONResponse({"status": "ok"})
+
 
 from src.sf_tools import register_tools as register_sf_tools  # noqa: E402
 from src.ns_tools import register_tools as register_ns_tools  # noqa: E402
