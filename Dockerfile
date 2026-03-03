@@ -4,4 +4,4 @@ COPY pyproject.toml .
 RUN pip install --no-cache-dir .
 COPY src/ src/
 EXPOSE 8000
-CMD ["python", "-m", "src.server"]
+CMD ["python", "-m", "src"]

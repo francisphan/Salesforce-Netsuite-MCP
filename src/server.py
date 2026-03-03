@@ -4,9 +4,26 @@ import os
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 load_dotenv()
+
+API_TOKEN = os.getenv("MCP_API_TOKEN")
+
+
+class BearerAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if not API_TOKEN:
+            return await call_next(request)
+        if request.url.path == "/health":
+            return await call_next(request)
+        auth = request.headers.get("authorization", "")
+        if auth != f"Bearer {API_TOKEN}":
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+        return await call_next(request)
+
 
 mcp = FastMCP(
     "Salesforce & NetSuite",
