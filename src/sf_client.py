@@ -82,9 +82,42 @@ def _refresh_oauth_token() -> Salesforce | None:
     return Salesforce(instance_url=data["instance_url"], session_id=data["access_token"])
 
 
+def _refresh_from_env() -> Salesforce | None:
+    """Refresh using SF_REFRESH_TOKEN env var (for deployed environments without token cache)."""
+    refresh_token = os.environ.get("SF_REFRESH_TOKEN")
+    if not refresh_token:
+        return None
+
+    client_id = os.environ["SF_CLIENT_ID"]
+    client_secret = os.environ["SF_CLIENT_SECRET"]
+    domain = os.environ.get("SF_DOMAIN") or "login"
+    base_url = f"https://{domain}.salesforce.com"
+
+    import requests
+
+    resp = requests.post(
+        f"{base_url}/services/oauth2/token",
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": client_id,
+            "client_secret": client_secret,
+        },
+    )
+    if not resp.ok:
+        return None
+
+    data = resp.json()
+    _save_token(data["instance_url"], data["access_token"], refresh_token)
+    return Salesforce(instance_url=data["instance_url"], session_id=data["access_token"])
+
+
 def _reconnect() -> Salesforce:
     """Re-authenticate using OAuth refresh token."""
     refreshed = _refresh_oauth_token()
+    if refreshed:
+        return refreshed
+    refreshed = _refresh_from_env()
     if refreshed:
         return refreshed
     raise RuntimeError(
