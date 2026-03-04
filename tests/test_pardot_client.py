@@ -1,0 +1,254 @@
+"""Tests for src/pardot_client.py."""
+
+import time
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
+import requests
+
+from src import pardot_client
+from src.pardot_client import (
+    BASE_URL,
+    _build_session,
+    _get,
+    _get_access_token,
+    _get_business_unit_id,
+    _pardot_session,
+    _refresh_session,
+    _with_retry,
+    get_campaign,
+    get_email_template,
+    get_form,
+    get_list,
+    get_prospect,
+    get_session,
+    query_campaigns,
+    query_email_templates,
+    query_forms,
+    query_list_memberships,
+    query_lists,
+    query_prospects,
+    query_visitor_activities,
+)
+
+
+# --- _get_business_unit_id ---
+
+
+class TestGetBusinessUnitId:
+    def test_returns_env_value(self, monkeypatch):
+        monkeypatch.setenv("PARDOT_BUSINESS_UNIT_ID", "0Uv000000000001")
+        assert _get_business_unit_id() == "0Uv000000000001"
+
+    def test_raises_when_missing(self, monkeypatch):
+        monkeypatch.delenv("PARDOT_BUSINESS_UNIT_ID", raising=False)
+        with pytest.raises(RuntimeError, match="PARDOT_BUSINESS_UNIT_ID"):
+            _get_business_unit_id()
+
+
+# --- _get_access_token ---
+
+
+class TestGetAccessToken:
+    def test_returns_sf_session_id(self, mock_sf):
+        assert _get_access_token() == "fake_access_token_123"
+
+
+# --- _build_session / get_session ---
+
+
+class TestBuildSession:
+    def test_session_has_correct_headers(self, mock_env, mock_sf):
+        session = _build_session()
+        assert session.headers["Authorization"] == "Bearer fake_access_token_123"
+        assert session.headers["Pardot-Business-Unit-Id"] == "0Uv000000000001"
+        assert session.headers["Content-Type"] == "application/json"
+
+    def test_get_session_singleton(self, mock_env, mock_sf):
+        s1 = get_session()
+        s2 = get_session()
+        assert s1 is s2
+
+    def test_get_session_rebuilds_after_clear(self, mock_env, mock_sf):
+        s1 = get_session()
+        _pardot_session[0] = None
+        s2 = get_session()
+        assert s1 is not s2
+
+
+# --- _refresh_session ---
+
+
+class TestRefreshSession:
+    @patch("src.pardot_client.sf_reconnect")
+    def test_refresh_rebuilds_session(self, mock_reconnect, mock_env, mock_sf):
+        new_sf = MagicMock()
+        new_sf.session_id = "new_token_456"
+        mock_reconnect.return_value = new_sf
+
+        old_session = get_session()
+        _refresh_session()
+        new_session = get_session()
+
+        assert old_session is not new_session
+        mock_reconnect.assert_called_once()
+
+
+# --- _with_retry ---
+
+
+class TestWithRetry:
+    def test_success_on_first_try(self, mock_env, mock_sf):
+        result = _with_retry(lambda session: "ok")
+        assert result == "ok"
+
+    @patch("src.pardot_client.time.sleep")
+    def test_retries_on_generic_exception(self, mock_sleep, mock_env, mock_sf):
+        call_count = 0
+
+        def flaky(session):
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise ConnectionError("transient")
+            return "recovered"
+
+        result = _with_retry(flaky)
+        assert result == "recovered"
+        assert call_count == 3
+        assert mock_sleep.call_count == 2
+
+    @patch("src.pardot_client._refresh_session")
+    def test_reauths_on_401(self, mock_refresh, mock_env, mock_sf):
+        response_401 = Mock()
+        response_401.status_code = 401
+        http_err = requests.exceptions.HTTPError(response=response_401)
+
+        call_count = 0
+
+        def fail_then_succeed(session):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise http_err
+            return "after_reauth"
+
+        result = _with_retry(fail_then_succeed)
+        assert result == "after_reauth"
+        mock_refresh.assert_called_once()
+
+    @patch("src.pardot_client.time.sleep")
+    def test_raises_after_max_retries(self, mock_sleep, mock_env, mock_sf):
+        def always_fail(session):
+            raise ConnectionError("permanent failure")
+
+        with pytest.raises(ConnectionError, match="permanent failure"):
+            _with_retry(always_fail)
+
+    @patch("src.pardot_client.time.sleep")
+    def test_retries_non_401_http_error(self, mock_sleep, mock_env, mock_sf):
+        response_500 = Mock()
+        response_500.status_code = 500
+        http_err = requests.exceptions.HTTPError(response=response_500)
+
+        def always_500(session):
+            raise http_err
+
+        with pytest.raises(requests.exceptions.HTTPError):
+            _with_retry(always_500)
+
+        assert mock_sleep.call_count == 2  # retried twice before giving up
+
+
+# --- _get helper ---
+
+
+class TestGetHelper:
+    @patch("src.pardot_client._with_retry")
+    def test_get_calls_correct_url(self, mock_retry, mock_env, mock_sf):
+        mock_retry.side_effect = lambda func: func(MagicMock(
+            get=MagicMock(return_value=MagicMock(
+                raise_for_status=MagicMock(),
+                json=MagicMock(return_value={"values": []}),
+            ))
+        ))
+        result = _get("prospects", params={"limit": 10})
+        assert result == {"values": []}
+
+
+# --- Query / Get functions ---
+
+
+class TestQueryFunctions:
+    @patch("src.pardot_client._get")
+    def test_query_prospects(self, mock_get):
+        mock_get.return_value = {"values": [{"id": "1"}]}
+        result = query_prospects({"limit": 10})
+        mock_get.assert_called_once_with("prospects", params={"limit": 10})
+        assert result == {"values": [{"id": "1"}]}
+
+    @patch("src.pardot_client._get")
+    def test_get_prospect(self, mock_get):
+        mock_get.return_value = {"id": "42"}
+        result = get_prospect("42")
+        mock_get.assert_called_once_with("prospects/42")
+
+    @patch("src.pardot_client._get")
+    def test_query_lists(self, mock_get):
+        mock_get.return_value = {"values": []}
+        query_lists({"fields": "name"})
+        mock_get.assert_called_once_with("lists", params={"fields": "name"})
+
+    @patch("src.pardot_client._get")
+    def test_get_list(self, mock_get):
+        mock_get.return_value = {"id": "5"}
+        get_list("5")
+        mock_get.assert_called_once_with("lists/5")
+
+    @patch("src.pardot_client._get")
+    def test_query_list_memberships(self, mock_get):
+        mock_get.return_value = {"values": []}
+        query_list_memberships({"list_id": "10"})
+        mock_get.assert_called_once_with("list-memberships", params={"list_id": "10"})
+
+    @patch("src.pardot_client._get")
+    def test_query_campaigns(self, mock_get):
+        mock_get.return_value = {"values": []}
+        query_campaigns()
+        mock_get.assert_called_once_with("campaigns", params=None)
+
+    @patch("src.pardot_client._get")
+    def test_get_campaign(self, mock_get):
+        mock_get.return_value = {"id": "7"}
+        get_campaign("7")
+        mock_get.assert_called_once_with("campaigns/7")
+
+    @patch("src.pardot_client._get")
+    def test_query_visitor_activities(self, mock_get):
+        mock_get.return_value = {"values": []}
+        query_visitor_activities({"type": "Visit"})
+        mock_get.assert_called_once_with("visitor-activities", params={"type": "Visit"})
+
+    @patch("src.pardot_client._get")
+    def test_query_forms(self, mock_get):
+        mock_get.return_value = {"values": []}
+        query_forms()
+        mock_get.assert_called_once_with("forms", params=None)
+
+    @patch("src.pardot_client._get")
+    def test_get_form(self, mock_get):
+        mock_get.return_value = {"id": "9"}
+        get_form("9")
+        mock_get.assert_called_once_with("forms/9")
+
+    @patch("src.pardot_client._get")
+    def test_query_email_templates(self, mock_get):
+        mock_get.return_value = {"values": []}
+        query_email_templates()
+        mock_get.assert_called_once_with("email-templates", params=None)
+
+    @patch("src.pardot_client._get")
+    def test_get_email_template(self, mock_get):
+        mock_get.return_value = {"id": "11"}
+        get_email_template("11")
+        mock_get.assert_called_once_with("email-templates/11")

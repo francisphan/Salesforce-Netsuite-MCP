@@ -1,6 +1,7 @@
 """Salesforce MCP tool definitions."""
 
 from src.sf_client import describe_object, get_record, list_objects, query
+from src.sf_schema import SCHEMA, OBJECT_NAMES
 
 
 def register_tools(mcp):
@@ -9,6 +10,14 @@ def register_tools(mcp):
     @mcp.tool()
     def sf_soql_query(query_str: str) -> list[dict]:
         """Execute a SOQL query against Salesforce and return matching records.
+
+        Core objects: TVRS_Guest__c (guest reservations, external ID: Email__c),
+        Account (Person Accounts), Contact, Opportunity, Lead, Campaign, CampaignMember, Task.
+
+        Key relationships: TVRS_Guest__c.Contact__c -> Contact -> Account (via AccountId).
+        Opportunity.AccountId -> Account. CampaignMember links Contact/Lead to Campaign.
+
+        Use sf_get_schema to explore field names, relationships, and example SOQL before querying.
 
         Args:
             query_str: A valid SOQL query string (e.g. "SELECT Id, Name FROM Account LIMIT 10").
@@ -63,3 +72,33 @@ def register_tools(mcp):
             return get_record(object_name, record_id)
         except Exception as e:
             return {"error": str(e)}
+
+    @mcp.tool()
+    def sf_get_schema(objects: str = "") -> dict:
+        """Return curated schema for Salesforce objects including fields, relationships, and example SOQL.
+
+        Call this before writing SOQL queries to discover field names, relationships, and query patterns.
+
+        Args:
+            objects: Comma-separated list of object API names (e.g. "Account,TVRS_Guest__c").
+                     If empty, returns schema for all curated objects.
+
+        Returns:
+            A dict keyed by object name with field, relationship, and example query info.
+            Unknown objects are silently omitted. Returns an error dict on complete failure.
+        """
+        if not objects.strip():
+            return SCHEMA
+
+        result = {}
+        for obj_name in objects.split(","):
+            obj_name = obj_name.strip()
+            if not obj_name:
+                continue
+            # Case-insensitive lookup
+            for schema_name, schema_data in SCHEMA.items():
+                if schema_name.lower() == obj_name.lower():
+                    result[schema_name] = schema_data
+                    break
+
+        return result

@@ -1,0 +1,266 @@
+"""Pardot / Account Engagement MCP tool definitions."""
+
+from src.pardot_client import (
+    get_campaign,
+    get_email_template,
+    get_form,
+    get_list,
+    get_prospect,
+    query_campaigns,
+    query_email_templates,
+    query_forms,
+    query_list_memberships,
+    query_lists,
+    query_prospects,
+    query_visitor_activities,
+)
+
+
+def register_tools(mcp):
+    """Register all Pardot tools on the given FastMCP instance."""
+
+    @mcp.tool()
+    def pardot_query_prospects(
+        fields: str = "", order_by: str = "", limit: int = 200
+    ) -> dict:
+        """Query Pardot prospects with optional field selection and ordering.
+
+        Args:
+            fields: Comma-separated field names to return (empty for all default fields).
+            order_by: Field name to sort results by (e.g. "created_at", "last_activity_at").
+            limit: Maximum number of prospects to return (default 200).
+
+        Returns:
+            A dict with prospect data, or an error dict on failure.
+        """
+        try:
+            params = {}
+            if fields:
+                params["fields"] = fields
+            if order_by:
+                params["order_by"] = order_by
+            if limit != 200:
+                params["limit"] = limit
+            return query_prospects(params or None)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_prospect(prospect_id: str) -> dict:
+        """Get a single Pardot prospect by ID.
+
+        Args:
+            prospect_id: The Pardot prospect ID.
+
+        Returns:
+            The prospect as a dict, or an error dict on failure.
+        """
+        try:
+            return get_prospect(prospect_id)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_query_lists(
+        fields: str = "", order_by: str = "", limit: int = 200
+    ) -> dict:
+        """Query Pardot static lists.
+
+        Args:
+            fields: Comma-separated field names to return (empty for all default fields).
+            order_by: Field name to sort results by.
+            limit: Maximum number of lists to return (default 200).
+
+        Returns:
+            A dict with list data, or an error dict on failure.
+        """
+        try:
+            params = {}
+            if fields:
+                params["fields"] = fields
+            if order_by:
+                params["order_by"] = order_by
+            if limit != 200:
+                params["limit"] = limit
+            return query_lists(params or None)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_list(list_id: str) -> dict:
+        """Get a single Pardot static list by ID.
+
+        Args:
+            list_id: The Pardot list ID.
+
+        Returns:
+            The list as a dict, or an error dict on failure.
+        """
+        try:
+            return get_list(list_id)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_query_list_memberships(
+        list_id: str = "", prospect_id: str = ""
+    ) -> dict:
+        """Query Pardot list memberships with optional filters.
+
+        Args:
+            list_id: Filter by list ID (empty for all).
+            prospect_id: Filter by prospect ID (empty for all).
+
+        Returns:
+            A dict with membership data, or an error dict on failure.
+        """
+        try:
+            params = {}
+            if list_id:
+                params["list_id"] = list_id
+            if prospect_id:
+                params["prospect_id"] = prospect_id
+            return query_list_memberships(params or None)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_query_campaigns(
+        fields: str = "", order_by: str = "", limit: int = 200
+    ) -> dict:
+        """Query Pardot campaigns (read-only).
+
+        Args:
+            fields: Comma-separated field names to return (empty for all default fields).
+            order_by: Field name to sort results by.
+            limit: Maximum number of campaigns to return (default 200).
+
+        Returns:
+            A dict with campaign data, or an error dict on failure.
+        """
+        try:
+            params = {}
+            if fields:
+                params["fields"] = fields
+            if order_by:
+                params["order_by"] = order_by
+            if limit != 200:
+                params["limit"] = limit
+            return query_campaigns(params or None)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_campaign(campaign_id: str) -> dict:
+        """Get a single Pardot campaign by ID.
+
+        Args:
+            campaign_id: The Pardot campaign ID.
+
+        Returns:
+            The campaign as a dict, or an error dict on failure.
+        """
+        try:
+            return get_campaign(campaign_id)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_query_visitor_activities(
+        prospect_id: str = "", activity_type: str = "", limit: int = 200
+    ) -> dict:
+        """Query Pardot visitor activities with optional filters.
+
+        Args:
+            prospect_id: Filter by prospect ID (empty for all).
+            activity_type: Filter by activity type (e.g. "Visit", "Email", "Form").
+            limit: Maximum number of activities to return (default 200).
+
+        Returns:
+            A dict with activity data, or an error dict on failure.
+        """
+        try:
+            params = {}
+            if prospect_id:
+                params["prospect_id"] = prospect_id
+            if activity_type:
+                params["type"] = activity_type
+            if limit != 200:
+                params["limit"] = limit
+            return query_visitor_activities(params or None)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_query_forms(fields: str = "", limit: int = 200) -> dict:
+        """Query Pardot forms.
+
+        Args:
+            fields: Comma-separated field names to return (empty for all default fields).
+            limit: Maximum number of forms to return (default 200).
+
+        Returns:
+            A dict with form data, or an error dict on failure.
+        """
+        try:
+            params = {}
+            if fields:
+                params["fields"] = fields
+            if limit != 200:
+                params["limit"] = limit
+            return query_forms(params or None)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_form(form_id: str) -> dict:
+        """Get a single Pardot form by ID.
+
+        Args:
+            form_id: The Pardot form ID.
+
+        Returns:
+            The form as a dict, or an error dict on failure.
+        """
+        try:
+            return get_form(form_id)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_query_email_templates(
+        fields: str = "", limit: int = 200
+    ) -> dict:
+        """Query Pardot email templates.
+
+        Args:
+            fields: Comma-separated field names to return (empty for all default fields).
+            limit: Maximum number of templates to return (default 200).
+
+        Returns:
+            A dict with template data, or an error dict on failure.
+        """
+        try:
+            params = {}
+            if fields:
+                params["fields"] = fields
+            if limit != 200:
+                params["limit"] = limit
+            return query_email_templates(params or None)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_email_template(template_id: str) -> dict:
+        """Get a single Pardot email template by ID.
+
+        Args:
+            template_id: The Pardot email template ID.
+
+        Returns:
+            The template as a dict, or an error dict on failure.
+        """
+        try:
+            return get_email_template(template_id)
+        except Exception as e:
+            return {"error": str(e)}

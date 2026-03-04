@@ -26,7 +26,7 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
 
 
 mcp = FastMCP(
-    "Salesforce & NetSuite",
+    "Salesforce, NetSuite & Pardot",
     host=os.getenv("MCP_HOST", "0.0.0.0"),
     port=int(os.getenv("MCP_PORT", "8000")),
 )
@@ -39,9 +39,11 @@ async def health(request):
 
 from src.sf_tools import register_tools as register_sf_tools  # noqa: E402
 from src.ns_tools import register_tools as register_ns_tools  # noqa: E402
+from src.pardot_tools import register_tools as register_pardot_tools  # noqa: E402
 
 register_sf_tools(mcp)
 register_ns_tools(mcp)
+register_pardot_tools(mcp)
 
 if __name__ == "__main__":
     transport = os.getenv("MCP_TRANSPORT", "sse")
