@@ -46,5 +46,5 @@ register_ns_tools(mcp)
 register_pardot_tools(mcp)
 
 if __name__ == "__main__":
-    transport = os.getenv("MCP_TRANSPORT", "sse")
+    transport = os.getenv("MCP_TRANSPORT", "streamable-http")
     mcp.run(transport=transport)

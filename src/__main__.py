@@ -6,7 +6,8 @@ import uvicorn
 
 from src.server import API_TOKEN, BearerAuthMiddleware, mcp
 
-app = mcp.sse_app()
+transport = os.getenv("MCP_TRANSPORT", "streamable-http")
+app = mcp.streamable_http_app() if transport == "streamable-http" else mcp.sse_app()
 
 if API_TOKEN:
     app.add_middleware(BearerAuthMiddleware)
