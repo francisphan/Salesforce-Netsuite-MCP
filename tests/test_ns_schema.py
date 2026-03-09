@@ -1,0 +1,102 @@
+"""Tests for ns_schema module and ns_get_netsuite_schema tool."""
+
+import pytest
+
+from src.ns_schema import SCHEMA, RECORD_TYPE_NAMES, SUITEQL_TABLES, get_schema
+
+
+class TestNsSchemaModule:
+    """Tests for the ns_schema module directly."""
+
+    def test_schema_has_expected_record_types(self):
+        expected = {
+            "customer", "salesOrder", "invoice", "item",
+            "transaction", "vendor", "employee", "contact",
+        }
+        assert expected == set(SCHEMA.keys())
+
+    def test_record_type_names_sorted(self):
+        assert RECORD_TYPE_NAMES == sorted(RECORD_TYPE_NAMES)
+
+    def test_each_record_has_required_keys(self):
+        for name, obj in SCHEMA.items():
+            assert "label" in obj, f"{name} missing label"
+            assert "description" in obj, f"{name} missing description"
+            assert "key_fields" in obj, f"{name} missing key_fields"
+            assert "example_suiteql" in obj, f"{name} missing example_suiteql"
+
+    def test_each_record_has_suiteql_table(self):
+        for name, obj in SCHEMA.items():
+            # suiteql_table is optional if the table name matches the key
+            table = obj.get("suiteql_table", name)
+            assert isinstance(table, str)
+
+    def test_suiteql_tables_mapping(self):
+        assert "customer" in SUITEQL_TABLES
+        assert "transaction" in SUITEQL_TABLES
+        assert "transactionline" in SUITEQL_TABLES
+
+    def test_get_schema_full(self):
+        result = get_schema()
+        assert result is SCHEMA
+
+    def test_get_schema_single(self):
+        result = get_schema("customer")
+        assert "customer" in result
+        assert len(result) == 1
+
+    def test_get_schema_case_insensitive(self):
+        result = get_schema("Customer")
+        assert "customer" in result
+
+    def test_get_schema_unknown_raises(self):
+        with pytest.raises(KeyError, match="not found in curated schema"):
+            get_schema("fakeRecord")
+
+
+class TestNsGetNetsuiteSchema:
+    """Tests for the ns_get_netsuite_schema tool function."""
+
+    @pytest.fixture
+    def get_schema_tool(self):
+        from unittest.mock import MagicMock
+
+        mcp = MagicMock()
+        captured = {}
+
+        def capture_tool():
+            def decorator(fn):
+                captured[fn.__name__] = fn
+                return fn
+            return decorator
+
+        mcp.tool = capture_tool
+        from src.ns_tools import register_tools
+        register_tools(mcp)
+        return captured["ns_get_netsuite_schema"]
+
+    def test_returns_full_schema_when_empty(self, get_schema_tool):
+        result = get_schema_tool(record_types="")
+        assert result is SCHEMA
+
+    def test_returns_filtered_single(self, get_schema_tool):
+        result = get_schema_tool(record_types="customer")
+        assert "customer" in result
+        assert len(result) == 1
+
+    def test_returns_filtered_multiple(self, get_schema_tool):
+        result = get_schema_tool(record_types="customer,salesOrder,invoice")
+        assert set(result.keys()) == {"customer", "salesOrder", "invoice"}
+
+    def test_unknown_silently_omitted(self, get_schema_tool):
+        result = get_schema_tool(record_types="fakeType")
+        assert result == {}
+
+    def test_mixed_known_and_unknown(self, get_schema_tool):
+        result = get_schema_tool(record_types="customer,fakeType,item")
+        assert set(result.keys()) == {"customer", "item"}
+
+    def test_case_insensitive(self, get_schema_tool):
+        result = get_schema_tool(record_types="CUSTOMER,SalesOrder")
+        assert "customer" in result
+        assert "salesOrder" in result
