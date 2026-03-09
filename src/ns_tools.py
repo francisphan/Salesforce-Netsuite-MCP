@@ -7,14 +7,21 @@ from src.ns_client import (
     rest_list,
     suiteql_query,
 )
+from src.ns_schema import SCHEMA as NS_SCHEMA
+from src.query_validator import validate_suiteql, enhance_ns_error
 
 
 def register_tools(mcp):
     """Register all NetSuite tools on the given FastMCP instance."""
 
     @mcp.tool()
-    def ns_suiteql_query(query: str, limit: int = 1000) -> list[dict]:
+    def ns_suiteql_query(query: str, limit: int = 1000) -> list[dict] | dict:
         """Execute a SuiteQL query against NetSuite and return matching records.
+
+        Key tables: customer, transaction (filter by type: SalesOrd, CustInvc, etc.),
+        transactionline, item, vendor, employee, contact.
+
+        Use ns_get_netsuite_schema to explore fields, tables, and example SuiteQL before querying.
 
         Args:
             query: A valid SuiteQL query string (e.g. "SELECT id, companyname FROM customer").
@@ -23,10 +30,21 @@ def register_tools(mcp):
         Returns:
             A list of result dicts, or a single-element list with an error dict on failure.
         """
+        # Pre-flight validation
+        validation = validate_suiteql(query)
+
         try:
-            return suiteql_query(query, limit=limit)
+            records = suiteql_query(query, limit=limit)
+            if validation["warnings"]:
+                return {
+                    "records": records,
+                    "warnings": validation["warnings"],
+                    "suggestions": validation["suggestions"],
+                }
+            return records
         except Exception as e:
-            return [{"error": str(e)}]
+            enhanced = enhance_ns_error(str(e), query)
+            return [{"error": enhanced}]
 
     @mcp.tool()
     def ns_rest_get(
@@ -84,7 +102,11 @@ def register_tools(mcp):
 
     @mcp.tool()
     def ns_get_record_schema(record_type: str) -> dict:
-        """Get the field schema for a NetSuite record type.
+        """Get the field schema for a NetSuite record type from the REST metadata API.
+
+        For common record types (customer, salesOrder, invoice, item, transaction,
+        vendor, employee, contact), prefer ns_get_netsuite_schema which returns
+        curated fields with SuiteQL examples.
 
         Args:
             record_type: REST record type name (e.g. "customer", "salesOrder").
@@ -96,3 +118,35 @@ def register_tools(mcp):
             return get_record_schema(record_type)
         except Exception as e:
             return {"error": str(e)}
+
+    @mcp.tool()
+    def ns_get_netsuite_schema(record_types: str = "") -> dict:
+        """Return curated schema for NetSuite record types including fields, SuiteQL tables, and example queries.
+
+        Call this before writing SuiteQL queries to discover field names, table mappings,
+        transaction type codes, and query patterns.
+
+        Covers: customer, salesOrder, invoice, item, transaction, vendor, employee, contact.
+
+        Args:
+            record_types: Comma-separated record type names (e.g. "customer,salesOrder").
+                          If empty, returns schema for all curated record types.
+
+        Returns:
+            A dict keyed by record type with field, table, and example query info.
+            Unknown types are silently omitted.
+        """
+        if not record_types.strip():
+            return NS_SCHEMA
+
+        result = {}
+        for name in record_types.split(","):
+            name = name.strip()
+            if not name:
+                continue
+            for schema_name, schema_data in NS_SCHEMA.items():
+                if schema_name.lower() == name.lower():
+                    result[schema_name] = schema_data
+                    break
+
+        return result

@@ -2,13 +2,14 @@
 
 from src.sf_client import describe_object, get_record, list_objects, query
 from src.sf_schema import SCHEMA, OBJECT_NAMES
+from src.query_validator import validate_soql, enhance_sf_error
 
 
 def register_tools(mcp):
     """Register all Salesforce tools on the given FastMCP instance."""
 
     @mcp.tool()
-    def sf_soql_query(query_str: str) -> list[dict]:
+    def sf_soql_query(query_str: str) -> list[dict] | dict:
         """Execute a SOQL query against Salesforce and return matching records.
 
         Core objects: TVRS_Guest__c (guest reservations, external ID: Email__c),
@@ -24,11 +25,30 @@ def register_tools(mcp):
 
         Returns:
             A list of record dicts, or a single-element list with an error dict on failure.
+            If pre-validation catches issues, returns a dict with warnings and suggestions.
         """
+        # Pre-flight validation
+        validation = validate_soql(query_str)
+        if not validation["valid"]:
+            return {
+                "validation_errors": validation["warnings"],
+                "suggestions": validation["suggestions"],
+                "note": "Query was still executed — check results below.",
+            }
+
         try:
-            return query(query_str)
+            records = query(query_str)
+            # Attach validation warnings if any
+            if validation["warnings"]:
+                return {
+                    "records": records,
+                    "warnings": validation["warnings"],
+                    "suggestions": validation["suggestions"],
+                }
+            return records
         except Exception as e:
-            return [{"error": str(e)}]
+            enhanced = enhance_sf_error(str(e), query_str)
+            return [{"error": enhanced}]
 
     @mcp.tool()
     def sf_describe_object(object_name: str) -> dict:
