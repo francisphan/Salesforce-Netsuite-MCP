@@ -63,10 +63,15 @@ def _with_retry(func):
         try:
             return func(session)
         except requests.exceptions.HTTPError as e:
-            if e.response is not None and e.response.status_code == 401:
-                _refresh_session()
-                session = get_session()
-                continue
+            if e.response is not None:
+                status = e.response.status_code
+                if status == 401:
+                    _refresh_session()
+                    session = get_session()
+                    continue
+                # Don't retry client errors (4xx) — they won't succeed on retry
+                if 400 <= status < 500:
+                    raise
             last_exc = e
             if attempt < MAX_RETRIES - 1:
                 time.sleep(RETRY_BACKOFF * (2**attempt))

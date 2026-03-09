@@ -58,7 +58,7 @@ class TestQueryProspects:
             fields="email,firstName", order_by="created_at", limit=50
         )
         mock_qp.assert_called_once_with(
-            {"fields": "email,firstName", "order_by": "created_at", "limit": 50}
+            {"fields": "email,firstName", "orderBy": "created_at", "limit": 50}
         )
 
     @patch("src.pardot_tools.query_prospects")
@@ -115,7 +115,7 @@ class TestQueryListMemberships:
     def test_success_with_filters(self, mock_qlm, mcp_with_tools):
         mock_qlm.return_value = {"values": []}
         mcp_with_tools["pardot_query_list_memberships"](list_id="10", prospect_id="20")
-        mock_qlm.assert_called_once_with({"list_id": "10", "prospect_id": "20"})
+        mock_qlm.assert_called_once_with({"listId": "10", "prospectId": "20"})
 
     @patch("src.pardot_tools.query_list_memberships")
     def test_error(self, mock_qlm, mcp_with_tools):
@@ -157,7 +157,7 @@ class TestQueryVisitorActivities:
             prospect_id="1", activity_type="Visit", limit=50
         )
         mock_qva.assert_called_once_with(
-            {"prospect_id": "1", "type": "Visit", "limit": 50}
+            {"prospectId": "1", "type": "Visit", "limit": 50}
         )
 
     @patch("src.pardot_tools.query_visitor_activities")

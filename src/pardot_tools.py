@@ -38,7 +38,7 @@ def register_tools(mcp):
             if fields:
                 params["fields"] = fields
             if order_by:
-                params["order_by"] = order_by
+                params["orderBy"] = order_by
             if limit != 200:
                 params["limit"] = limit
             return query_prospects(params or None)
@@ -79,7 +79,7 @@ def register_tools(mcp):
             if fields:
                 params["fields"] = fields
             if order_by:
-                params["order_by"] = order_by
+                params["orderBy"] = order_by
             if limit != 200:
                 params["limit"] = limit
             return query_lists(params or None)
@@ -117,9 +117,9 @@ def register_tools(mcp):
         try:
             params = {}
             if list_id:
-                params["list_id"] = list_id
+                params["listId"] = list_id
             if prospect_id:
-                params["prospect_id"] = prospect_id
+                params["prospectId"] = prospect_id
             return query_list_memberships(params or None)
         except Exception as e:
             return {"error": str(e)}
@@ -143,7 +143,7 @@ def register_tools(mcp):
             if fields:
                 params["fields"] = fields
             if order_by:
-                params["order_by"] = order_by
+                params["orderBy"] = order_by
             if limit != 200:
                 params["limit"] = limit
             return query_campaigns(params or None)
@@ -182,7 +182,7 @@ def register_tools(mcp):
         try:
             params = {}
             if prospect_id:
-                params["prospect_id"] = prospect_id
+                params["prospectId"] = prospect_id
             if activity_type:
                 params["type"] = activity_type
             if limit != 200:
