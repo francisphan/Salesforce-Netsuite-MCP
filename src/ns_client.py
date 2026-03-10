@@ -72,3 +72,27 @@ def get_record_schema(record_type: str) -> dict:
     """Get field schema for a NetSuite record type."""
     client = get_client()
     return client.metadata.get_record_schema(record_type)
+
+
+def rest_create(record_type: str, body: dict) -> dict:
+    """Create a new NetSuite record."""
+    client = get_client()
+    return client.rest.create(record_type, body)
+
+
+def rest_update(record_type: str, record_id: str, body: dict) -> dict:
+    """Update an existing NetSuite record."""
+    client = get_client()
+    return client.rest.update(record_type, record_id, body)
+
+
+def rest_upsert(record_type: str, body: dict, external_id: str) -> dict:
+    """Upsert a NetSuite record using an external ID."""
+    client = get_client()
+    return client.rest.upsert(record_type, body, external_id=external_id)
+
+
+def rest_delete(record_type: str, record_id: str) -> None:
+    """Delete a NetSuite record."""
+    client = get_client()
+    client.rest.delete(record_type, record_id)

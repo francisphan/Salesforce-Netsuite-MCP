@@ -9,21 +9,44 @@ from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-load_dotenv()
+from src.auth import AUTH_LEVEL, READ_TOKEN, WRITE_TOKEN
 
-API_TOKEN = os.getenv("MCP_API_TOKEN")
+load_dotenv()
 
 
 class BearerAuthMiddleware(BaseHTTPMiddleware):
+    """Authenticate requests using bearer tokens.
+
+    - MCP_API_TOKEN  → read-only access (existing behaviour)
+    - MCP_WRITE_TOKEN → read + write access
+
+    If neither env var is set, all requests are allowed with write access
+    (for local development).
+    """
+
     async def dispatch(self, request, call_next):
-        if not API_TOKEN:
-            return await call_next(request)
+        # Skip auth for health check
         if request.url.path == "/health":
             return await call_next(request)
-        auth = request.headers.get("authorization", "")
-        if auth != f"Bearer {API_TOKEN}":
-            return JSONResponse({"error": "Unauthorized"}, status_code=401)
-        return await call_next(request)
+
+        # If no tokens configured, allow everything (local dev)
+        if not READ_TOKEN and not WRITE_TOKEN:
+            AUTH_LEVEL.set("write")
+            return await call_next(request)
+
+        bearer = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
+
+        # Check write token first (it grants superset of read access)
+        if WRITE_TOKEN and bearer == WRITE_TOKEN:
+            AUTH_LEVEL.set("write")
+            return await call_next(request)
+
+        # Check read token
+        if READ_TOKEN and bearer == READ_TOKEN:
+            AUTH_LEVEL.set("read")
+            return await call_next(request)
+
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
 
 mcp = FastMCP(
@@ -50,6 +73,15 @@ register_sf_tools(mcp)
 register_ns_tools(mcp)
 register_pardot_tools(mcp)
 register_cross_tools(mcp)
+
+# Write tools — gated behind MCP_WRITE_TOKEN
+from src.sf_write_tools import register_tools as register_sf_write_tools  # noqa: E402
+from src.ns_write_tools import register_tools as register_ns_write_tools  # noqa: E402
+from src.pardot_write_tools import register_tools as register_pardot_write_tools  # noqa: E402
+
+register_sf_write_tools(mcp)
+register_ns_write_tools(mcp)
+register_pardot_write_tools(mcp)
 
 
 # ---------------------------------------------------------------------------

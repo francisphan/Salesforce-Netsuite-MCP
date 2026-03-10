@@ -196,3 +196,43 @@ def get_record(object_name: str, record_id: str) -> dict:
         return record
 
     return _with_retry(_do)
+
+
+def create_record(object_name: str, data: dict) -> dict:
+    """Create a new Salesforce record with retry."""
+
+    def _do(sf):
+        return getattr(sf, object_name).create(data)
+
+    return _with_retry(_do)
+
+
+def update_record(object_name: str, record_id: str, data: dict) -> dict:
+    """Update an existing Salesforce record by Id with retry."""
+
+    def _do(sf):
+        return getattr(sf, object_name).update(record_id, data)
+
+    return _with_retry(_do)
+
+
+def delete_record(object_name: str, record_id: str) -> dict:
+    """Delete a Salesforce record by Id with retry."""
+
+    def _do(sf):
+        return getattr(sf, object_name).delete(record_id)
+
+    return _with_retry(_do)
+
+
+def upsert_record(
+    object_name: str, external_id_field: str, external_id: str, data: dict
+) -> dict:
+    """Upsert a Salesforce record using an external ID field with retry."""
+
+    def _do(sf):
+        return getattr(sf, object_name).upsert(
+            f"{external_id_field}/{external_id}", data
+        )
+
+    return _with_retry(_do)

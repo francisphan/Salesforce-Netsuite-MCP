@@ -165,3 +165,50 @@ def query_email_templates(params: dict | None = None) -> dict:
 def get_email_template(template_id: str) -> dict:
     """GET /email-templates/{id}."""
     return _get(f"email-templates/{template_id}")
+
+
+# --- Write Helpers ---
+
+def _post(endpoint: str, body: dict) -> dict:
+    """POST helper that returns parsed JSON with retry."""
+    def _do(session):
+        resp = session.post(f"{BASE_URL}/{endpoint}", json=body)
+        resp.raise_for_status()
+        return resp.json()
+    return _with_retry(_do)
+
+
+def _patch(endpoint: str, body: dict) -> dict:
+    """PATCH helper that returns parsed JSON with retry."""
+    def _do(session):
+        resp = session.patch(f"{BASE_URL}/{endpoint}", json=body)
+        resp.raise_for_status()
+        return resp.json()
+    return _with_retry(_do)
+
+
+# --- Prospect Write Operations ---
+
+def create_prospect(data: dict) -> dict:
+    """Create a new Pardot prospect.
+
+    Args:
+        data: Dict of prospect fields (e.g. email, firstName, lastName).
+
+    Returns:
+        The created prospect as a dict.
+    """
+    return _post("prospects", data)
+
+
+def update_prospect(prospect_id: str, data: dict) -> dict:
+    """Update an existing Pardot prospect.
+
+    Args:
+        prospect_id: The Pardot prospect ID.
+        data: Dict of fields to update.
+
+    Returns:
+        The updated prospect as a dict.
+    """
+    return _patch(f"prospects/{prospect_id}", data)
