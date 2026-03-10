@@ -14,8 +14,11 @@ from src.pardot_client import (
     _get_access_token,
     _get_business_unit_id,
     _pardot_session,
+    _patch,
+    _post,
     _refresh_session,
     _with_retry,
+    create_prospect,
     get_campaign,
     get_email_template,
     get_form,
@@ -29,6 +32,7 @@ from src.pardot_client import (
     query_lists,
     query_prospects,
     query_visitor_activities,
+    update_prospect,
 )
 
 
@@ -252,3 +256,97 @@ class TestQueryFunctions:
         mock_get.return_value = {"id": "11"}
         get_email_template("11")
         mock_get.assert_called_once_with("email-templates/11")
+
+
+# --- _post / _patch helpers ---
+
+
+class TestPostHelper:
+    @patch("src.pardot_client._with_retry")
+    def test_post_calls_correct_url_with_json_body(self, mock_retry, mock_env, mock_sf):
+        mock_session = MagicMock()
+        mock_session.post.return_value = MagicMock(
+            raise_for_status=MagicMock(),
+            json=MagicMock(return_value={"id": "new"}),
+        )
+        mock_retry.side_effect = lambda func: func(mock_session)
+
+        result = _post("prospects", {"email": "a@b.com"})
+        mock_session.post.assert_called_once_with(
+            f"{BASE_URL}/prospects", json={"email": "a@b.com"}
+        )
+        assert result == {"id": "new"}
+
+
+class TestPatchHelper:
+    @patch("src.pardot_client._with_retry")
+    def test_patch_calls_correct_url_with_json_body(self, mock_retry, mock_env, mock_sf):
+        mock_session = MagicMock()
+        mock_session.patch.return_value = MagicMock(
+            raise_for_status=MagicMock(),
+            json=MagicMock(return_value={"id": "42", "firstName": "Updated"}),
+        )
+        mock_retry.side_effect = lambda func: func(mock_session)
+
+        result = _patch("prospects/42", {"firstName": "Updated"})
+        mock_session.patch.assert_called_once_with(
+            f"{BASE_URL}/prospects/42", json={"firstName": "Updated"}
+        )
+        assert result == {"id": "42", "firstName": "Updated"}
+
+
+# --- Write operation functions ---
+
+
+class TestWriteFunctions:
+    @patch("src.pardot_client._post")
+    def test_create_prospect(self, mock_post):
+        mock_post.return_value = {"id": "100", "email": "new@test.com"}
+        result = create_prospect({"email": "new@test.com", "firstName": "Jane"})
+        mock_post.assert_called_once_with(
+            "prospects", {"email": "new@test.com", "firstName": "Jane"}
+        )
+        assert result["id"] == "100"
+
+    @patch("src.pardot_client._patch")
+    def test_update_prospect(self, mock_patch):
+        mock_patch.return_value = {"id": "100", "firstName": "Updated"}
+        result = update_prospect("100", {"firstName": "Updated"})
+        mock_patch.assert_called_once_with(
+            "prospects/100", {"firstName": "Updated"}
+        )
+        assert result["firstName"] == "Updated"
+
+
+# --- 4xx no-retry behavior ---
+
+
+class TestNoRetryOn4xx:
+    @patch("src.pardot_client.time.sleep")
+    def test_400_raises_immediately_without_retry(self, mock_sleep, mock_env, mock_sf):
+        response_400 = Mock()
+        response_400.status_code = 400
+        http_err = requests.exceptions.HTTPError(response=response_400)
+
+        def always_400(session):
+            raise http_err
+
+        with pytest.raises(requests.exceptions.HTTPError):
+            _with_retry(always_400)
+
+        # Should NOT have slept (no retries for 4xx)
+        mock_sleep.assert_not_called()
+
+    @patch("src.pardot_client.time.sleep")
+    def test_403_raises_immediately_without_retry(self, mock_sleep, mock_env, mock_sf):
+        response_403 = Mock()
+        response_403.status_code = 403
+        http_err = requests.exceptions.HTTPError(response=response_403)
+
+        def always_403(session):
+            raise http_err
+
+        with pytest.raises(requests.exceptions.HTTPError):
+            _with_retry(always_403)
+
+        mock_sleep.assert_not_called()
