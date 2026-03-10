@@ -4,12 +4,13 @@ import os
 
 import uvicorn
 
-from src.server import API_TOKEN, BearerAuthMiddleware, mcp
+from src.auth import READ_TOKEN, WRITE_TOKEN
+from src.server import BearerAuthMiddleware, mcp
 
 transport = os.getenv("MCP_TRANSPORT", "streamable-http")
 app = mcp.streamable_http_app() if transport == "streamable-http" else mcp.sse_app()
 
-if API_TOKEN:
+if READ_TOKEN or WRITE_TOKEN:
     app.add_middleware(BearerAuthMiddleware)
 
 uvicorn.run(
