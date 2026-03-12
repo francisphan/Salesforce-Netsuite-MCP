@@ -195,7 +195,7 @@ class TestQueryFunctions:
     def test_get_prospect(self, mock_get):
         mock_get.return_value = {"id": "42"}
         result = get_prospect("42")
-        mock_get.assert_called_once_with("prospects/42")
+        mock_get.assert_called_once_with("prospects/42", params=None)
 
     @patch("src.pardot_client._get")
     def test_query_lists(self, mock_get):
@@ -207,7 +207,7 @@ class TestQueryFunctions:
     def test_get_list(self, mock_get):
         mock_get.return_value = {"id": "5"}
         get_list("5")
-        mock_get.assert_called_once_with("lists/5")
+        mock_get.assert_called_once_with("lists/5", params=None)
 
     @patch("src.pardot_client._get")
     def test_query_list_memberships(self, mock_get):
@@ -225,7 +225,7 @@ class TestQueryFunctions:
     def test_get_campaign(self, mock_get):
         mock_get.return_value = {"id": "7"}
         get_campaign("7")
-        mock_get.assert_called_once_with("campaigns/7")
+        mock_get.assert_called_once_with("campaigns/7", params=None)
 
     @patch("src.pardot_client._get")
     def test_query_visitor_activities(self, mock_get):
@@ -243,7 +243,7 @@ class TestQueryFunctions:
     def test_get_form(self, mock_get):
         mock_get.return_value = {"id": "9"}
         get_form("9")
-        mock_get.assert_called_once_with("forms/9")
+        mock_get.assert_called_once_with("forms/9", params=None)
 
     @patch("src.pardot_client._get")
     def test_query_email_templates(self, mock_get):
@@ -255,7 +255,7 @@ class TestQueryFunctions:
     def test_get_email_template(self, mock_get):
         mock_get.return_value = {"id": "11"}
         get_email_template("11")
-        mock_get.assert_called_once_with("email-templates/11")
+        mock_get.assert_called_once_with("email-templates/11", params=None)
 
 
 # --- _post / _patch helpers ---

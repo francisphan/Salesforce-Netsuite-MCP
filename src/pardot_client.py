@@ -100,9 +100,10 @@ def query_prospects(params: dict | None = None) -> dict:
     return _get("prospects", params=params)
 
 
-def get_prospect(prospect_id: str) -> dict:
+def get_prospect(prospect_id: str, fields: str | None = None) -> dict:
     """GET /prospects/{id}."""
-    return _get(f"prospects/{prospect_id}")
+    params = {"fields": fields} if fields else None
+    return _get(f"prospects/{prospect_id}", params=params)
 
 
 # --- Lists ---
@@ -112,9 +113,10 @@ def query_lists(params: dict | None = None) -> dict:
     return _get("lists", params=params)
 
 
-def get_list(list_id: str) -> dict:
+def get_list(list_id: str, fields: str | None = None) -> dict:
     """GET /lists/{id}."""
-    return _get(f"lists/{list_id}")
+    params = {"fields": fields} if fields else None
+    return _get(f"lists/{list_id}", params=params)
 
 
 # --- List Memberships ---
@@ -131,9 +133,10 @@ def query_campaigns(params: dict | None = None) -> dict:
     return _get("campaigns", params=params)
 
 
-def get_campaign(campaign_id: str) -> dict:
+def get_campaign(campaign_id: str, fields: str | None = None) -> dict:
     """GET /campaigns/{id}."""
-    return _get(f"campaigns/{campaign_id}")
+    params = {"fields": fields} if fields else None
+    return _get(f"campaigns/{campaign_id}", params=params)
 
 
 # --- Visitor Activities ---
@@ -150,9 +153,10 @@ def query_forms(params: dict | None = None) -> dict:
     return _get("forms", params=params)
 
 
-def get_form(form_id: str) -> dict:
+def get_form(form_id: str, fields: str | None = None) -> dict:
     """GET /forms/{id}."""
-    return _get(f"forms/{form_id}")
+    params = {"fields": fields} if fields else None
+    return _get(f"forms/{form_id}", params=params)
 
 
 # --- Email Templates ---
@@ -162,9 +166,10 @@ def query_email_templates(params: dict | None = None) -> dict:
     return _get("email-templates", params=params)
 
 
-def get_email_template(template_id: str) -> dict:
+def get_email_template(template_id: str, fields: str | None = None) -> dict:
     """GET /email-templates/{id}."""
-    return _get(f"email-templates/{template_id}")
+    params = {"fields": fields} if fields else None
+    return _get(f"email-templates/{template_id}", params=params)
 
 
 # --- Write Helpers ---

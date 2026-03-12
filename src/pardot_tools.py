@@ -15,6 +15,24 @@ from src.pardot_client import (
     query_visitor_activities,
 )
 
+# Pardot API v5 requires explicit field selection — these are sensible defaults.
+DEFAULT_PROSPECT_FIELDS = (
+    "id,email,firstName,lastName,company,jobTitle,city,state,country,"
+    "phone,score,grade,source,campaignId,salesforceId,createdAt,updatedAt"
+)
+DEFAULT_LIST_FIELDS = "id,name,title,description,isPublic,isDynamic,isCrmVisible,createdAt,updatedAt"
+DEFAULT_CAMPAIGN_FIELDS = "id,name,cost,folderId,salesforceId,createdAt,updatedAt"
+DEFAULT_FORM_FIELDS = "id,name,folderId,campaignId,trackerDomainId,createdAt,updatedAt"
+DEFAULT_EMAIL_TEMPLATE_FIELDS = (
+    "id,name,subject,htmlMessage,textMessage,folderId,isOneToOneEmail,"
+    "isArchived,isAutoResponderEmail,isDripEmail,isListEmail,createdAt,updatedAt"
+)
+DEFAULT_VISITOR_ACTIVITY_FIELDS = (
+    "id,prospectId,visitorId,type,typeName,details,emailId,formId,"
+    "formHandlerId,campaignId,listEmailId,createdAt"
+)
+DEFAULT_LIST_MEMBERSHIP_FIELDS = "id,listId,prospectId,optedOut,createdAt,updatedAt"
+
 
 def register_tools(mcp):
     """Register all Pardot tools on the given FastMCP instance."""
@@ -34,14 +52,12 @@ def register_tools(mcp):
             A dict with prospect data, or an error dict on failure.
         """
         try:
-            params = {}
-            if fields:
-                params["fields"] = fields
+            params = {"fields": fields or DEFAULT_PROSPECT_FIELDS}
             if order_by:
                 params["orderBy"] = order_by
             if limit != 200:
                 params["limit"] = limit
-            return query_prospects(params or None)
+            return query_prospects(params)
         except Exception as e:
             return {"error": str(e)}
 
@@ -56,7 +72,7 @@ def register_tools(mcp):
             The prospect as a dict, or an error dict on failure.
         """
         try:
-            return get_prospect(prospect_id)
+            return get_prospect(prospect_id, fields=DEFAULT_PROSPECT_FIELDS)
         except Exception as e:
             return {"error": str(e)}
 
@@ -75,14 +91,12 @@ def register_tools(mcp):
             A dict with list data, or an error dict on failure.
         """
         try:
-            params = {}
-            if fields:
-                params["fields"] = fields
+            params = {"fields": fields or DEFAULT_LIST_FIELDS}
             if order_by:
                 params["orderBy"] = order_by
             if limit != 200:
                 params["limit"] = limit
-            return query_lists(params or None)
+            return query_lists(params)
         except Exception as e:
             return {"error": str(e)}
 
@@ -97,7 +111,7 @@ def register_tools(mcp):
             The list as a dict, or an error dict on failure.
         """
         try:
-            return get_list(list_id)
+            return get_list(list_id, fields=DEFAULT_LIST_FIELDS)
         except Exception as e:
             return {"error": str(e)}
 
@@ -115,12 +129,12 @@ def register_tools(mcp):
             A dict with membership data, or an error dict on failure.
         """
         try:
-            params = {}
+            params = {"fields": DEFAULT_LIST_MEMBERSHIP_FIELDS}
             if list_id:
                 params["listId"] = list_id
             if prospect_id:
                 params["prospectId"] = prospect_id
-            return query_list_memberships(params or None)
+            return query_list_memberships(params)
         except Exception as e:
             return {"error": str(e)}
 
@@ -139,14 +153,12 @@ def register_tools(mcp):
             A dict with campaign data, or an error dict on failure.
         """
         try:
-            params = {}
-            if fields:
-                params["fields"] = fields
+            params = {"fields": fields or DEFAULT_CAMPAIGN_FIELDS}
             if order_by:
                 params["orderBy"] = order_by
             if limit != 200:
                 params["limit"] = limit
-            return query_campaigns(params or None)
+            return query_campaigns(params)
         except Exception as e:
             return {"error": str(e)}
 
@@ -161,7 +173,7 @@ def register_tools(mcp):
             The campaign as a dict, or an error dict on failure.
         """
         try:
-            return get_campaign(campaign_id)
+            return get_campaign(campaign_id, fields=DEFAULT_CAMPAIGN_FIELDS)
         except Exception as e:
             return {"error": str(e)}
 
@@ -180,14 +192,14 @@ def register_tools(mcp):
             A dict with activity data, or an error dict on failure.
         """
         try:
-            params = {}
+            params = {"fields": DEFAULT_VISITOR_ACTIVITY_FIELDS}
             if prospect_id:
                 params["prospectId"] = prospect_id
             if activity_type:
                 params["type"] = activity_type
             if limit != 200:
                 params["limit"] = limit
-            return query_visitor_activities(params or None)
+            return query_visitor_activities(params)
         except Exception as e:
             return {"error": str(e)}
 
@@ -203,12 +215,10 @@ def register_tools(mcp):
             A dict with form data, or an error dict on failure.
         """
         try:
-            params = {}
-            if fields:
-                params["fields"] = fields
+            params = {"fields": fields or DEFAULT_FORM_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            return query_forms(params or None)
+            return query_forms(params)
         except Exception as e:
             return {"error": str(e)}
 
@@ -223,7 +233,7 @@ def register_tools(mcp):
             The form as a dict, or an error dict on failure.
         """
         try:
-            return get_form(form_id)
+            return get_form(form_id, fields=DEFAULT_FORM_FIELDS)
         except Exception as e:
             return {"error": str(e)}
 
@@ -241,12 +251,10 @@ def register_tools(mcp):
             A dict with template data, or an error dict on failure.
         """
         try:
-            params = {}
-            if fields:
-                params["fields"] = fields
+            params = {"fields": fields or DEFAULT_EMAIL_TEMPLATE_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            return query_email_templates(params or None)
+            return query_email_templates(params)
         except Exception as e:
             return {"error": str(e)}
 
@@ -261,6 +269,6 @@ def register_tools(mcp):
             The template as a dict, or an error dict on failure.
         """
         try:
-            return get_email_template(template_id)
+            return get_email_template(template_id, fields=DEFAULT_EMAIL_TEMPLATE_FIELDS)
         except Exception as e:
             return {"error": str(e)}

@@ -4,7 +4,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.pardot_tools import register_tools
+from src.pardot_tools import (
+    DEFAULT_CAMPAIGN_FIELDS,
+    DEFAULT_EMAIL_TEMPLATE_FIELDS,
+    DEFAULT_FORM_FIELDS,
+    DEFAULT_LIST_FIELDS,
+    DEFAULT_LIST_MEMBERSHIP_FIELDS,
+    DEFAULT_PROSPECT_FIELDS,
+    DEFAULT_VISITOR_ACTIVITY_FIELDS,
+    register_tools,
+)
 
 
 @pytest.fixture
@@ -48,7 +57,7 @@ class TestQueryProspects:
     def test_success_default_params(self, mock_qp, mcp_with_tools):
         mock_qp.return_value = {"values": [{"id": "1"}]}
         result = mcp_with_tools["pardot_query_prospects"]()
-        mock_qp.assert_called_once_with(None)
+        mock_qp.assert_called_once_with({"fields": DEFAULT_PROSPECT_FIELDS})
         assert result == {"values": [{"id": "1"}]}
 
     @patch("src.pardot_tools.query_prospects")
@@ -73,7 +82,7 @@ class TestGetProspect:
     def test_success(self, mock_gp, mcp_with_tools):
         mock_gp.return_value = {"id": "42", "email": "a@b.com"}
         result = mcp_with_tools["pardot_get_prospect"]("42")
-        mock_gp.assert_called_once_with("42")
+        mock_gp.assert_called_once_with("42", fields=DEFAULT_PROSPECT_FIELDS)
         assert result["id"] == "42"
 
     @patch("src.pardot_tools.get_prospect")
@@ -88,7 +97,7 @@ class TestQueryLists:
     def test_success(self, mock_ql, mcp_with_tools):
         mock_ql.return_value = {"values": [{"id": "1", "name": "Test"}]}
         result = mcp_with_tools["pardot_query_lists"]()
-        mock_ql.assert_called_once_with(None)
+        mock_ql.assert_called_once_with({"fields": DEFAULT_LIST_FIELDS})
 
     @patch("src.pardot_tools.query_lists")
     def test_error(self, mock_ql, mcp_with_tools):
@@ -115,7 +124,7 @@ class TestQueryListMemberships:
     def test_success_with_filters(self, mock_qlm, mcp_with_tools):
         mock_qlm.return_value = {"values": []}
         mcp_with_tools["pardot_query_list_memberships"](list_id="10", prospect_id="20")
-        mock_qlm.assert_called_once_with({"listId": "10", "prospectId": "20"})
+        mock_qlm.assert_called_once_with({"fields": DEFAULT_LIST_MEMBERSHIP_FIELDS, "listId": "10", "prospectId": "20"})
 
     @patch("src.pardot_tools.query_list_memberships")
     def test_error(self, mock_qlm, mcp_with_tools):
@@ -129,7 +138,7 @@ class TestQueryCampaigns:
     def test_success(self, mock_qc, mcp_with_tools):
         mock_qc.return_value = {"values": []}
         mcp_with_tools["pardot_query_campaigns"]()
-        mock_qc.assert_called_once_with(None)
+        mock_qc.assert_called_once_with({"fields": DEFAULT_CAMPAIGN_FIELDS})
 
     @patch("src.pardot_tools.query_campaigns")
     def test_error(self, mock_qc, mcp_with_tools):
@@ -142,6 +151,7 @@ class TestGetCampaign:
     def test_success(self, mock_gc, mcp_with_tools):
         mock_gc.return_value = {"id": "7"}
         assert mcp_with_tools["pardot_get_campaign"]("7") == {"id": "7"}
+        mock_gc.assert_called_once_with("7", fields=DEFAULT_CAMPAIGN_FIELDS)
 
     @patch("src.pardot_tools.get_campaign")
     def test_error(self, mock_gc, mcp_with_tools):
@@ -157,7 +167,7 @@ class TestQueryVisitorActivities:
             prospect_id="1", activity_type="Visit", limit=50
         )
         mock_qva.assert_called_once_with(
-            {"prospectId": "1", "type": "Visit", "limit": 50}
+            {"fields": DEFAULT_VISITOR_ACTIVITY_FIELDS, "prospectId": "1", "type": "Visit", "limit": 50}
         )
 
     @patch("src.pardot_tools.query_visitor_activities")
@@ -171,7 +181,7 @@ class TestQueryForms:
     def test_success(self, mock_qf, mcp_with_tools):
         mock_qf.return_value = {"values": []}
         mcp_with_tools["pardot_query_forms"]()
-        mock_qf.assert_called_once_with(None)
+        mock_qf.assert_called_once_with({"fields": DEFAULT_FORM_FIELDS})
 
     @patch("src.pardot_tools.query_forms")
     def test_error(self, mock_qf, mcp_with_tools):
@@ -184,6 +194,7 @@ class TestGetForm:
     def test_success(self, mock_gf, mcp_with_tools):
         mock_gf.return_value = {"id": "9"}
         assert mcp_with_tools["pardot_get_form"]("9") == {"id": "9"}
+        mock_gf.assert_called_once_with("9", fields=DEFAULT_FORM_FIELDS)
 
     @patch("src.pardot_tools.get_form")
     def test_error(self, mock_gf, mcp_with_tools):
@@ -196,7 +207,7 @@ class TestQueryEmailTemplates:
     def test_success(self, mock_qet, mcp_with_tools):
         mock_qet.return_value = {"values": []}
         mcp_with_tools["pardot_query_email_templates"]()
-        mock_qet.assert_called_once_with(None)
+        mock_qet.assert_called_once_with({"fields": DEFAULT_EMAIL_TEMPLATE_FIELDS})
 
     @patch("src.pardot_tools.query_email_templates")
     def test_error(self, mock_qet, mcp_with_tools):
@@ -209,6 +220,7 @@ class TestGetEmailTemplate:
     def test_success(self, mock_get, mcp_with_tools):
         mock_get.return_value = {"id": "11"}
         assert mcp_with_tools["pardot_get_email_template"]("11") == {"id": "11"}
+        mock_get.assert_called_once_with("11", fields=DEFAULT_EMAIL_TEMPLATE_FIELDS)
 
     @patch("src.pardot_tools.get_email_template")
     def test_error(self, mock_get, mcp_with_tools):
