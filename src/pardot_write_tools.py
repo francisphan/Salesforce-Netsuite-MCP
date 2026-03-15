@@ -1,7 +1,7 @@
 """Pardot / Account Engagement write MCP tool definitions."""
 
 from src.auth import require_write_access
-from src.pardot_client import create_prospect, update_prospect
+from src.pardot_client import create_prospect, update_prospect, create_email_template
 
 
 def register_tools(mcp):
@@ -39,6 +39,24 @@ def register_tools(mcp):
         try:
             require_write_access()
             return update_prospect(prospect_id, data)
+        except PermissionError as e:
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_create_email_template(data: dict) -> dict:
+        """Create a new Pardot email template.
+
+        Args:
+            data: Dict of email template fields (e.g. name, subject, htmlMessage, textMessage, folderId).
+
+        Returns:
+            The created email template as a dict, or an error dict on failure.
+        """
+        try:
+            require_write_access()
+            return create_email_template(data)
         except PermissionError as e:
             return {"error": str(e)}
         except Exception as e:

@@ -206,6 +206,18 @@ def create_prospect(data: dict) -> dict:
     return _post("prospects", data)
 
 
+def create_email_template(data: dict) -> dict:
+    """Create a new Pardot email template.
+
+    Args:
+        data: Dict of email template fields (e.g. name, subject, htmlMessage, folderId).
+
+    Returns:
+        The created email template as a dict.
+    """
+    return _post("email-templates", data)
+
+
 def update_prospect(prospect_id: str, data: dict) -> dict:
     """Update an existing Pardot prospect.
 
