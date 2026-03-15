@@ -271,6 +271,17 @@ def _patch(endpoint: str, body: dict) -> dict:
     return _with_retry(_do)
 
 
+def _delete(endpoint: str) -> dict:
+    """DELETE helper that returns parsed JSON (or success flag on 204) with retry."""
+    def _do(session):
+        resp = session.delete(f"{BASE_URL}/{endpoint}")
+        resp.raise_for_status()
+        if resp.status_code == 204 or not resp.content:
+            return {"success": True}
+        return resp.json()
+    return _with_retry(_do)
+
+
 # --- Prospect Write Operations ---
 
 def create_prospect(data: dict) -> dict:
@@ -308,3 +319,248 @@ def update_prospect(prospect_id: str, data: dict) -> dict:
         The updated prospect as a dict.
     """
     return _patch(f"prospects/{prospect_id}", data)
+
+
+def delete_prospect(prospect_id: str) -> dict:
+    """Delete a Pardot prospect by ID.
+
+    Args:
+        prospect_id: The Pardot prospect ID.
+
+    Returns:
+        A success dict, or raises on failure.
+    """
+    return _delete(f"prospects/{prospect_id}")
+
+
+def upsert_prospect_by_email(data: dict) -> dict:
+    """Upsert a prospect by email — creates or updates the most recent match.
+
+    Args:
+        data: Dict of prospect fields; must include 'email'.
+
+    Returns:
+        The created or updated prospect as a dict.
+    """
+    return _post("prospects/do/upsertLatestByEmail", data)
+
+
+def undelete_prospect(prospect_id: str) -> dict:
+    """Restore a previously deleted Pardot prospect.
+
+    Args:
+        prospect_id: The Pardot prospect ID to restore.
+
+    Returns:
+        The restored prospect as a dict.
+    """
+    return _post(f"prospects/{prospect_id}/do/undelete", {})
+
+
+# --- List Write Operations ---
+
+def create_list(data: dict) -> dict:
+    """Create a new Pardot list.
+
+    Args:
+        data: Dict of list fields (e.g. name, title, description).
+
+    Returns:
+        The created list as a dict.
+    """
+    return _post("lists", data)
+
+
+def update_list(list_id: str, data: dict) -> dict:
+    """Update an existing Pardot list.
+
+    Args:
+        list_id: The Pardot list ID.
+        data: Dict of fields to update.
+
+    Returns:
+        The updated list as a dict.
+    """
+    return _patch(f"lists/{list_id}", data)
+
+
+def delete_list(list_id: str) -> dict:
+    """Delete a Pardot list by ID.
+
+    Args:
+        list_id: The Pardot list ID.
+
+    Returns:
+        A success dict, or raises on failure.
+    """
+    return _delete(f"lists/{list_id}")
+
+
+# --- List Membership Write Operations ---
+
+def create_list_membership(data: dict) -> dict:
+    """Create a new list membership.
+
+    Args:
+        data: Dict with listId and prospectId.
+
+    Returns:
+        The created membership as a dict.
+    """
+    return _post("list-memberships", data)
+
+
+def update_list_membership(membership_id: str, data: dict) -> dict:
+    """Update an existing list membership.
+
+    Args:
+        membership_id: The list membership ID.
+        data: Dict of fields to update.
+
+    Returns:
+        The updated membership as a dict.
+    """
+    return _patch(f"list-memberships/{membership_id}", data)
+
+
+def delete_list_membership(membership_id: str) -> dict:
+    """Delete a list membership by ID.
+
+    Args:
+        membership_id: The list membership ID.
+
+    Returns:
+        A success dict, or raises on failure.
+    """
+    return _delete(f"list-memberships/{membership_id}")
+
+
+# --- Email Write Operations ---
+
+def create_email(data: dict) -> dict:
+    """Send a one-to-one Pardot email.
+
+    Args:
+        data: Dict with prospectId, emailTemplateId, campaignId, etc.
+
+    Returns:
+        The created email as a dict.
+    """
+    return _post("emails", data)
+
+
+def create_list_email(data: dict) -> dict:
+    """Send a Pardot email to a list.
+
+    Args:
+        data: Dict with name, listId, emailTemplateId, campaignId, etc.
+
+    Returns:
+        The created list email as a dict.
+    """
+    return _post("list-emails", data)
+
+
+# --- Email Template Write Operations ---
+
+def update_email_template(template_id: str, data: dict) -> dict:
+    """Update an existing Pardot email template.
+
+    Args:
+        template_id: The email template ID.
+        data: Dict of fields to update.
+
+    Returns:
+        The updated email template as a dict.
+    """
+    return _patch(f"email-templates/{template_id}", data)
+
+
+def delete_email_template(template_id: str) -> dict:
+    """Delete a Pardot email template by ID.
+
+    Args:
+        template_id: The email template ID.
+
+    Returns:
+        A success dict, or raises on failure.
+    """
+    return _delete(f"email-templates/{template_id}")
+
+
+# --- Custom Field Write Operations ---
+
+def create_custom_field(data: dict) -> dict:
+    """Create a new Pardot custom field.
+
+    Args:
+        data: Dict of custom field properties (e.g. name, fieldId, type).
+
+    Returns:
+        The created custom field as a dict.
+    """
+    return _post("custom-fields", data)
+
+
+def update_custom_field(field_id: str, data: dict) -> dict:
+    """Update an existing Pardot custom field.
+
+    Args:
+        field_id: The custom field ID.
+        data: Dict of fields to update.
+
+    Returns:
+        The updated custom field as a dict.
+    """
+    return _patch(f"custom-fields/{field_id}", data)
+
+
+def delete_custom_field(field_id: str) -> dict:
+    """Delete a Pardot custom field by ID.
+
+    Args:
+        field_id: The custom field ID.
+
+    Returns:
+        A success dict, or raises on failure.
+    """
+    return _delete(f"custom-fields/{field_id}")
+
+
+# --- Tag Write Operations ---
+
+def create_tag(data: dict) -> dict:
+    """Create a new Pardot tag.
+
+    Args:
+        data: Dict with tag properties (e.g. name).
+
+    Returns:
+        The created tag as a dict.
+    """
+    return _post("tags", data)
+
+
+def update_tag(tag_id: str, data: dict) -> dict:
+    """Update an existing Pardot tag.
+
+    Args:
+        tag_id: The tag ID.
+        data: Dict of fields to update.
+
+    Returns:
+        The updated tag as a dict.
+    """
+    return _patch(f"tags/{tag_id}", data)
+
+
+def delete_tag(tag_id: str) -> dict:
+    """Delete a Pardot tag by ID.
+
+    Args:
+        tag_id: The tag ID.
+
+    Returns:
+        A success dict, or raises on failure.
+    """
+    return _delete(f"tags/{tag_id}")
