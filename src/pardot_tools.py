@@ -49,10 +49,11 @@ DEFAULT_EMAIL_FIELDS = (
     "trackerDomainId,sentAt,type,listEmailId"
 )
 DEFAULT_LIST_EMAIL_FIELDS = (
-    "id,name,subject,campaignId,emailTemplateId,isSent,"
-    "sentAt,trackerDomainId,createdAt"
+    "id,name,subject,campaignId,emailTemplateId,isSent,sentAt,trackerDomainId,createdAt"
 )
-DEFAULT_CUSTOM_FIELD_FIELDS = "id,name,fieldId,type,isRequired,isRecordMultipleResponses,createdAt,updatedAt"
+DEFAULT_CUSTOM_FIELD_FIELDS = (
+    "id,name,fieldId,type,isRequired,isRecordMultipleResponses,createdAt,updatedAt"
+)
 DEFAULT_TAG_FIELDS = "id,name,createdAt,updatedAt"
 DEFAULT_TAGGED_OBJECT_FIELDS = "id,tagId,objectType,objectId,createdAt"
 
@@ -62,7 +63,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_prospects(
-        fields: str = "", order_by: str = "", limit: int = 200
+        fields: str = "", order_by: str = "", limit: int = 200, cursor: str = ""
     ) -> dict:
         """Query Pardot prospects with optional field selection and ordering.
 
@@ -70,9 +71,10 @@ def register_tools(mcp):
             fields: Comma-separated field names to return (empty for all default fields).
             order_by: Field name to sort results by (e.g. "createdAt", "lastActivityAt").
             limit: Maximum number of prospects to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
 
         Returns:
-            A dict with prospect data, or an error dict on failure.
+            A dict with prospect data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
             params = {"fields": fields or DEFAULT_PROSPECT_FIELDS}
@@ -80,6 +82,8 @@ def register_tools(mcp):
                 params["orderBy"] = order_by
             if limit != 200:
                 params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
             return query_prospects(params)
         except Exception as e:
             return {"error": str(e)}
@@ -101,7 +105,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_lists(
-        fields: str = "", order_by: str = "", limit: int = 200
+        fields: str = "", order_by: str = "", limit: int = 200, cursor: str = ""
     ) -> dict:
         """Query Pardot static lists.
 
@@ -109,9 +113,10 @@ def register_tools(mcp):
             fields: Comma-separated field names to return (empty for all default fields).
             order_by: Field name to sort results by.
             limit: Maximum number of lists to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
 
         Returns:
-            A dict with list data, or an error dict on failure.
+            A dict with list data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
             params = {"fields": fields or DEFAULT_LIST_FIELDS}
@@ -119,6 +124,8 @@ def register_tools(mcp):
                 params["orderBy"] = order_by
             if limit != 200:
                 params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
             return query_lists(params)
         except Exception as e:
             return {"error": str(e)}
@@ -140,16 +147,17 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_list_memberships(
-        list_id: str = "", prospect_id: str = ""
+        list_id: str = "", prospect_id: str = "", cursor: str = ""
     ) -> dict:
         """Query Pardot list memberships with optional filters.
 
         Args:
             list_id: Filter by list ID (empty for all).
             prospect_id: Filter by prospect ID (empty for all).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
 
         Returns:
-            A dict with membership data, or an error dict on failure.
+            A dict with membership data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
             params = {"fields": DEFAULT_LIST_MEMBERSHIP_FIELDS}
@@ -157,13 +165,15 @@ def register_tools(mcp):
                 params["listId"] = list_id
             if prospect_id:
                 params["prospectId"] = prospect_id
+            if cursor:
+                params["cursor"] = cursor
             return query_list_memberships(params)
         except Exception as e:
             return {"error": str(e)}
 
     @mcp.tool()
     def pardot_query_campaigns(
-        fields: str = "", order_by: str = "", limit: int = 200
+        fields: str = "", order_by: str = "", limit: int = 200, cursor: str = ""
     ) -> dict:
         """Query Pardot campaigns (read-only).
 
@@ -171,9 +181,10 @@ def register_tools(mcp):
             fields: Comma-separated field names to return (empty for all default fields).
             order_by: Field name to sort results by.
             limit: Maximum number of campaigns to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
 
         Returns:
-            A dict with campaign data, or an error dict on failure.
+            A dict with campaign data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
             params = {"fields": fields or DEFAULT_CAMPAIGN_FIELDS}
@@ -181,6 +192,8 @@ def register_tools(mcp):
                 params["orderBy"] = order_by
             if limit != 200:
                 params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
             return query_campaigns(params)
         except Exception as e:
             return {"error": str(e)}
@@ -202,7 +215,10 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_visitor_activities(
-        prospect_id: str = "", activity_type: str = "", limit: int = 200
+        prospect_id: str = "",
+        activity_type: str = "",
+        limit: int = 200,
+        cursor: str = "",
     ) -> dict:
         """Query Pardot visitor activities with optional filters.
 
@@ -210,9 +226,10 @@ def register_tools(mcp):
             prospect_id: Filter by prospect ID (empty for all).
             activity_type: Filter by activity type (e.g. "Visit", "Email", "Form").
             limit: Maximum number of activities to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
 
         Returns:
-            A dict with activity data, or an error dict on failure.
+            A dict with activity data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
             params = {"fields": DEFAULT_VISITOR_ACTIVITY_FIELDS}
@@ -222,25 +239,32 @@ def register_tools(mcp):
                 params["type"] = activity_type
             if limit != 200:
                 params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
             return query_visitor_activities(params)
         except Exception as e:
             return {"error": str(e)}
 
     @mcp.tool()
-    def pardot_query_forms(fields: str = "", limit: int = 200) -> dict:
+    def pardot_query_forms(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
         """Query Pardot forms.
 
         Args:
             fields: Comma-separated field names to return (empty for all default fields).
             limit: Maximum number of forms to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
 
         Returns:
-            A dict with form data, or an error dict on failure.
+            A dict with form data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
             params = {"fields": fields or DEFAULT_FORM_FIELDS}
             if limit != 200:
                 params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
             return query_forms(params)
         except Exception as e:
             return {"error": str(e)}
@@ -261,41 +285,49 @@ def register_tools(mcp):
             return {"error": str(e)}
 
     @mcp.tool()
-    def pardot_query_tracker_domains(fields: str = "", limit: int = 200) -> dict:
+    def pardot_query_tracker_domains(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
         """Query Pardot tracker domains.
 
         Args:
             fields: Comma-separated field names to return (empty for defaults).
             limit: Maximum number of results (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
 
         Returns:
-            A dict with tracker domain data, or an error dict on failure.
+            A dict with tracker domain data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
             params = {"fields": fields or "id,domain,isPrimary,isDeleted"}
             if limit != 200:
                 params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
             return query_tracker_domains(params)
         except Exception as e:
             return {"error": str(e)}
 
     @mcp.tool()
     def pardot_query_email_templates(
-        fields: str = "", limit: int = 200
+        fields: str = "", limit: int = 200, cursor: str = ""
     ) -> dict:
         """Query Pardot email templates.
 
         Args:
             fields: Comma-separated field names to return (empty for all default fields).
             limit: Maximum number of templates to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
 
         Returns:
-            A dict with template data, or an error dict on failure.
+            A dict with template data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
             params = {"fields": fields or DEFAULT_EMAIL_TEMPLATE_FIELDS}
             if limit != 200:
                 params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
             return query_email_templates(params)
         except Exception as e:
             return {"error": str(e)}
@@ -328,27 +360,34 @@ def register_tools(mcp):
             The membership as a dict, or an error dict on failure.
         """
         try:
-            return get_list_membership(membership_id, fields=DEFAULT_LIST_MEMBERSHIP_FIELDS)
+            return get_list_membership(
+                membership_id, fields=DEFAULT_LIST_MEMBERSHIP_FIELDS
+            )
         except Exception as e:
             return {"error": str(e)}
 
     # --- Email Read ---
 
     @mcp.tool()
-    def pardot_query_emails(fields: str = "", limit: int = 200) -> dict:
+    def pardot_query_emails(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
         """Query Pardot emails (one-to-one sends).
 
         Args:
             fields: Comma-separated field names to return (empty for defaults).
             limit: Maximum number of emails to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
 
         Returns:
-            A dict with email data, or an error dict on failure.
+            A dict with email data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
             params = {"fields": fields or DEFAULT_EMAIL_FIELDS}
             if limit != 200:
                 params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
             return query_emails(params)
         except Exception as e:
             return {"error": str(e)}
@@ -371,20 +410,25 @@ def register_tools(mcp):
     # --- List Email Read ---
 
     @mcp.tool()
-    def pardot_query_list_emails(fields: str = "", limit: int = 200) -> dict:
+    def pardot_query_list_emails(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
         """Query Pardot list emails (batch sends to lists).
 
         Args:
             fields: Comma-separated field names to return (empty for defaults).
             limit: Maximum number of list emails to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
 
         Returns:
-            A dict with list email data, or an error dict on failure.
+            A dict with list email data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
             params = {"fields": fields or DEFAULT_LIST_EMAIL_FIELDS}
             if limit != 200:
                 params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
             return query_list_emails(params)
         except Exception as e:
             return {"error": str(e)}
@@ -407,20 +451,25 @@ def register_tools(mcp):
     # --- Custom Field Read ---
 
     @mcp.tool()
-    def pardot_query_custom_fields(fields: str = "", limit: int = 200) -> dict:
+    def pardot_query_custom_fields(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
         """Query Pardot custom fields.
 
         Args:
             fields: Comma-separated field names to return (empty for defaults).
             limit: Maximum number of custom fields to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
 
         Returns:
-            A dict with custom field data, or an error dict on failure.
+            A dict with custom field data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
             params = {"fields": fields or DEFAULT_CUSTOM_FIELD_FIELDS}
             if limit != 200:
                 params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
             return query_custom_fields(params)
         except Exception as e:
             return {"error": str(e)}
@@ -443,20 +492,23 @@ def register_tools(mcp):
     # --- Tag Read ---
 
     @mcp.tool()
-    def pardot_query_tags(fields: str = "", limit: int = 200) -> dict:
+    def pardot_query_tags(fields: str = "", limit: int = 200, cursor: str = "") -> dict:
         """Query Pardot tags.
 
         Args:
             fields: Comma-separated field names to return (empty for defaults).
             limit: Maximum number of tags to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
 
         Returns:
-            A dict with tag data, or an error dict on failure.
+            A dict with tag data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
             params = {"fields": fields or DEFAULT_TAG_FIELDS}
             if limit != 200:
                 params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
             return query_tags(params)
         except Exception as e:
             return {"error": str(e)}
@@ -480,16 +532,17 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_tagged_objects(
-        tag_id: str = "", object_type: str = ""
+        tag_id: str = "", object_type: str = "", cursor: str = ""
     ) -> dict:
         """Query Pardot tagged objects with optional filters.
 
         Args:
             tag_id: Filter by tag ID (empty for all).
             object_type: Filter by object type (empty for all).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
 
         Returns:
-            A dict with tagged object data, or an error dict on failure.
+            A dict with tagged object data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
             params = {"fields": DEFAULT_TAGGED_OBJECT_FIELDS}
@@ -497,6 +550,8 @@ def register_tools(mcp):
                 params["tagId"] = tag_id
             if object_type:
                 params["objectType"] = object_type
+            if cursor:
+                params["cursor"] = cursor
             return query_tagged_objects(params)
         except Exception as e:
             return {"error": str(e)}
@@ -512,6 +567,8 @@ def register_tools(mcp):
             The tagged object as a dict, or an error dict on failure.
         """
         try:
-            return get_tagged_object(tagged_object_id, fields=DEFAULT_TAGGED_OBJECT_FIELDS)
+            return get_tagged_object(
+                tagged_object_id, fields=DEFAULT_TAGGED_OBJECT_FIELDS
+            )
         except Exception as e:
             return {"error": str(e)}

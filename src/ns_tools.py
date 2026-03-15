@@ -6,6 +6,7 @@ from src.ns_client import (
     rest_get,
     rest_list,
     suiteql_query,
+    suiteql_query_page,
 )
 from src.ns_schema import SCHEMA as NS_SCHEMA
 from src.query_validator import validate_suiteql, enhance_ns_error
@@ -15,7 +16,9 @@ def register_tools(mcp):
     """Register all NetSuite tools on the given FastMCP instance."""
 
     @mcp.tool()
-    def ns_suiteql_query(query: str, limit: int = 1000) -> list[dict] | dict:
+    def ns_suiteql_query(
+        query: str, limit: int = 1000, offset: int = 0
+    ) -> list[dict] | dict:
         """Execute a SuiteQL query against NetSuite and return matching records.
 
         Key tables: customer, transaction (filter by type: SalesOrd, CustInvc, etc.),
@@ -23,17 +26,34 @@ def register_tools(mcp):
 
         Use ns_get_netsuite_schema to explore fields, tables, and example SuiteQL before querying.
 
+        Pagination: By default, all pages are fetched and concatenated. To paginate manually,
+        set offset > 0 to retrieve a single page starting at that row. The response will include
+        'hasMore' and 'offset' so you can fetch subsequent pages.
+
         Args:
             query: A valid SuiteQL query string (e.g. "SELECT id, companyname FROM customer").
-            limit: Max rows per page (default 1000). All pages are fetched automatically.
+            limit: Max rows per page (default 1000).
+            offset: Starting row offset (default 0). When 0 all pages are fetched automatically.
+                    Set to any value > 0 to get a single page at that offset (useful for manual pagination).
 
         Returns:
-            A list of result dicts, or a single-element list with an error dict on failure.
+            If offset is 0: a list of all result dicts (auto-paginated).
+            If offset > 0: a dict with 'items', 'hasMore', 'offset', and 'totalResults'.
+            On failure: a single-element list or dict with an error message.
         """
         # Pre-flight validation
         validation = validate_suiteql(query)
 
         try:
+            if offset > 0:
+                # Manual pagination — return a single page
+                result = suiteql_query_page(query, limit=limit, offset=offset)
+                if validation["warnings"]:
+                    result["warnings"] = validation["warnings"]
+                    result["suggestions"] = validation["suggestions"]
+                return result
+
+            # Default: fetch all pages
             records = suiteql_query(query, limit=limit)
             if validation["warnings"]:
                 return {
@@ -61,7 +81,9 @@ def register_tools(mcp):
             The record as a dict, or an error dict on failure.
         """
         try:
-            return rest_get(record_type, record_id, expand_sub_resources=expand_sub_resources)
+            return rest_get(
+                record_type, record_id, expand_sub_resources=expand_sub_resources
+            )
         except Exception as e:
             return {"error": str(e)}
 

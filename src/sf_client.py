@@ -39,7 +39,9 @@ def _load_cached_token() -> Salesforce | None:
         return None
     try:
         data = json.loads(TOKEN_CACHE.read_text())
-        sf = Salesforce(instance_url=data["instance_url"], session_id=data["access_token"])
+        sf = Salesforce(
+            instance_url=data["instance_url"], session_id=data["access_token"]
+        )
         sf.describe()  # test if token is still valid
         return sf
     except Exception:
@@ -79,7 +81,9 @@ def _refresh_oauth_token() -> Salesforce | None:
 
     data = resp.json()
     _save_token(data["instance_url"], data["access_token"], data.get("refresh_token"))
-    return Salesforce(instance_url=data["instance_url"], session_id=data["access_token"])
+    return Salesforce(
+        instance_url=data["instance_url"], session_id=data["access_token"]
+    )
 
 
 def _refresh_from_env() -> Salesforce | None:
@@ -109,7 +113,9 @@ def _refresh_from_env() -> Salesforce | None:
 
     data = resp.json()
     _save_token(data["instance_url"], data["access_token"], refresh_token)
-    return Salesforce(instance_url=data["instance_url"], session_id=data["access_token"])
+    return Salesforce(
+        instance_url=data["instance_url"], session_id=data["access_token"]
+    )
 
 
 def _reconnect() -> Salesforce:
@@ -156,7 +162,7 @@ def _with_retry(func):
 
 
 def query(soql: str) -> list[dict]:
-    """Run a SOQL query with automatic retry."""
+    """Run a SOQL query with automatic retry (fetches all pages)."""
 
     def _do(sf):
         result = sf.query_all(soql)
@@ -164,6 +170,32 @@ def query(soql: str) -> list[dict]:
         for r in records:
             r.pop("attributes", None)
         return records
+
+    return _with_retry(_do)
+
+
+def query_page(soql: str = "", next_records_url: str = "") -> dict:
+    """Run a SOQL query returning a single page, or fetch the next page via URL.
+
+    Returns a dict with 'records', 'totalSize', 'done', and optionally 'nextRecordsUrl'.
+    """
+
+    def _do(sf):
+        if next_records_url:
+            result = sf.query_more(next_records_url, identifier_is_url=True)
+        else:
+            result = sf.query(soql)
+        records = result.get("records", [])
+        for r in records:
+            r.pop("attributes", None)
+        page = {
+            "records": records,
+            "totalSize": result.get("totalSize", len(records)),
+            "done": result.get("done", True),
+        }
+        if not result.get("done") and result.get("nextRecordsUrl"):
+            page["nextRecordsUrl"] = result["nextRecordsUrl"]
+        return page
 
     return _with_retry(_do)
 

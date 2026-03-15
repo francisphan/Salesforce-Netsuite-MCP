@@ -33,6 +33,13 @@ def suiteql_query(query: str, limit: int = 1000) -> list[dict]:
     return list(client.suiteql.query_all(query, limit=limit))
 
 
+def suiteql_query_page(query: str, limit: int = 1000, offset: int = 0) -> dict:
+    """Execute a SuiteQL query and return a single page of results."""
+    client = get_client()
+    result = client.suiteql.query(query, limit=limit, offset=offset)
+    return result.model_dump(by_alias=True)
+
+
 def rest_get(
     record_type: str,
     record_id: str,
@@ -43,7 +50,8 @@ def rest_get(
     """Get a single NetSuite record by type and ID."""
     client = get_client()
     return client.rest.get(
-        record_type, record_id,
+        record_type,
+        record_id,
         expand_sub_resources=expand_sub_resources,
         fields=fields,
     )

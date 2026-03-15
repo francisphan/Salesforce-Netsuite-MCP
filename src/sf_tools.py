@@ -1,6 +1,6 @@
 """Salesforce MCP tool definitions."""
 
-from src.sf_client import describe_object, get_record, list_objects, query
+from src.sf_client import describe_object, get_record, list_objects, query, query_page
 from src.sf_schema import SCHEMA, OBJECT_NAMES
 from src.query_validator import validate_soql, enhance_sf_error
 
@@ -9,7 +9,9 @@ def register_tools(mcp):
     """Register all Salesforce tools on the given FastMCP instance."""
 
     @mcp.tool()
-    def sf_soql_query(query_str: str) -> list[dict] | dict:
+    def sf_soql_query(
+        query_str: str = "", next_records_url: str = ""
+    ) -> list[dict] | dict:
         """Execute a SOQL query against Salesforce and return matching records.
 
         Core objects: TVRS_Guest__c (guest reservations, external ID: Email__c),
@@ -20,13 +22,31 @@ def register_tools(mcp):
 
         Use sf_get_schema to explore field names, relationships, and example SOQL before querying.
 
+        Pagination: By default, all matching records are returned. For large result sets,
+        pass next_records_url (returned as 'nextRecordsUrl' in previous response) to fetch
+        the next page instead.
+
         Args:
             query_str: A valid SOQL query string (e.g. "SELECT Id, Name FROM Account LIMIT 10").
+                       Required for the initial query; omit when using next_records_url.
+            next_records_url: URL from a previous response's 'nextRecordsUrl' to fetch the next page.
+                              When provided, query_str is ignored.
 
         Returns:
-            A list of record dicts, or a single-element list with an error dict on failure.
-            If pre-validation catches issues, returns a dict with warnings and suggestions.
+            If next_records_url is provided: a dict with 'records', 'totalSize', 'done',
+            and optionally 'nextRecordsUrl' for the next page.
+            Otherwise: a list of all record dicts, or a dict with warnings/errors.
         """
+        # Paginated follow-up — return a single page
+        if next_records_url:
+            try:
+                return query_page(next_records_url=next_records_url)
+            except Exception as e:
+                return {"error": str(e)}
+
+        if not query_str:
+            return {"error": "Either query_str or next_records_url must be provided."}
+
         # Pre-flight validation
         validation = validate_soql(query_str)
         if not validation["valid"]:
