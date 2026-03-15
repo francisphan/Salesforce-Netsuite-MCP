@@ -32,12 +32,12 @@ DEFAULT_PROSPECT_FIELDS = (
     "id,email,firstName,lastName,company,jobTitle,city,state,country,"
     "phone,score,grade,source,campaignId,salesforceId,createdAt,updatedAt"
 )
-DEFAULT_LIST_FIELDS = "id,name,title,description,isPublic,isDynamic,isCrmVisible,createdAt,updatedAt"
+DEFAULT_LIST_FIELDS = "id,name,title,description,isPublic,isDynamic,folderId,campaignId,createdAt,updatedAt"
 DEFAULT_CAMPAIGN_FIELDS = "id,name,cost,folderId,salesforceId,createdAt,updatedAt"
 DEFAULT_FORM_FIELDS = "id,name,folderId,campaignId,trackerDomainId,createdAt,updatedAt"
 DEFAULT_EMAIL_TEMPLATE_FIELDS = (
     "id,name,subject,htmlMessage,textMessage,folderId,isOneToOneEmail,"
-    "isArchived,isAutoResponderEmail,isDripEmail,isListEmail,createdAt,updatedAt"
+    "isAutoResponderEmail,isDripEmail,isListEmail,type,campaignId,createdAt,updatedAt"
 )
 DEFAULT_VISITOR_ACTIVITY_FIELDS = (
     "id,prospectId,visitorId,type,typeName,details,emailId,formId,"
@@ -68,7 +68,7 @@ def register_tools(mcp):
 
         Args:
             fields: Comma-separated field names to return (empty for all default fields).
-            order_by: Field name to sort results by (e.g. "created_at", "last_activity_at").
+            order_by: Field name to sort results by (e.g. "createdAt", "lastActivityAt").
             limit: Maximum number of prospects to return (default 200).
 
         Returns:
