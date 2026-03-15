@@ -266,7 +266,10 @@ def _patch(endpoint: str, body: dict) -> dict:
     """PATCH helper that returns parsed JSON with retry."""
     def _do(session):
         resp = session.patch(f"{BASE_URL}/{endpoint}", json=body)
-        resp.raise_for_status()
+        if not resp.ok:
+            raise Exception(f"{resp.status_code} {resp.reason}: {resp.text}")
+        if resp.status_code == 204 or not resp.content or not resp.text.strip():
+            return {"success": True}
         return resp.json()
     return _with_retry(_do)
 
@@ -276,7 +279,7 @@ def _delete(endpoint: str) -> dict:
     def _do(session):
         resp = session.delete(f"{BASE_URL}/{endpoint}")
         resp.raise_for_status()
-        if resp.status_code == 204 or not resp.content:
+        if resp.status_code == 204 or not resp.content or not resp.text.strip():
             return {"success": True}
         return resp.json()
     return _with_retry(_do)
