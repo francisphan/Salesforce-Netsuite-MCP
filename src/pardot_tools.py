@@ -12,6 +12,7 @@ from src.pardot_client import (
     query_list_memberships,
     query_lists,
     query_prospects,
+    query_tracker_domains,
     query_visitor_activities,
 )
 
@@ -234,6 +235,25 @@ def register_tools(mcp):
         """
         try:
             return get_form(form_id, fields=DEFAULT_FORM_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_query_tracker_domains(fields: str = "", limit: int = 200) -> dict:
+        """Query Pardot tracker domains.
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of results (default 200).
+
+        Returns:
+            A dict with tracker domain data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or "id,domain,isPrimary,isDeleted"}
+            if limit != 200:
+                params["limit"] = limit
+            return query_tracker_domains(params)
         except Exception as e:
             return {"error": str(e)}
 

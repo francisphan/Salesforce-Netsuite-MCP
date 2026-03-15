@@ -159,6 +159,13 @@ def get_form(form_id: str, fields: str | None = None) -> dict:
     return _get(f"forms/{form_id}", params=params)
 
 
+# --- Tracker Domains ---
+
+def query_tracker_domains(params: dict | None = None) -> dict:
+    """GET /tracker-domains with optional filter params."""
+    return _get("tracker-domains", params=params)
+
+
 # --- Email Templates ---
 
 def query_email_templates(params: dict | None = None) -> dict:
