@@ -2,16 +2,27 @@
 
 from src.pardot_client import (
     get_campaign,
+    get_custom_field,
+    get_email,
     get_email_template,
     get_form,
     get_list,
+    get_list_email,
+    get_list_membership,
     get_prospect,
+    get_tag,
+    get_tagged_object,
     query_campaigns,
+    query_custom_fields,
     query_email_templates,
+    query_emails,
     query_forms,
+    query_list_emails,
     query_list_memberships,
     query_lists,
     query_prospects,
+    query_tagged_objects,
+    query_tags,
     query_tracker_domains,
     query_visitor_activities,
 )
@@ -33,6 +44,17 @@ DEFAULT_VISITOR_ACTIVITY_FIELDS = (
     "formHandlerId,campaignId,listEmailId,createdAt"
 )
 DEFAULT_LIST_MEMBERSHIP_FIELDS = "id,listId,prospectId,optedOut,createdAt,updatedAt"
+DEFAULT_EMAIL_FIELDS = (
+    "id,name,subject,campaignId,prospectId,emailTemplateId,"
+    "trackerDomainId,sentAt,type,listEmailId"
+)
+DEFAULT_LIST_EMAIL_FIELDS = (
+    "id,name,subject,campaignId,emailTemplateId,isSent,"
+    "sentAt,trackerDomainId,createdAt"
+)
+DEFAULT_CUSTOM_FIELD_FIELDS = "id,name,fieldId,type,isRequired,isRecordMultipleResponses,createdAt,updatedAt"
+DEFAULT_TAG_FIELDS = "id,name,createdAt,updatedAt"
+DEFAULT_TAGGED_OBJECT_FIELDS = "id,tagId,objectType,objectId,createdAt"
 
 
 def register_tools(mcp):
@@ -290,5 +312,206 @@ def register_tools(mcp):
         """
         try:
             return get_email_template(template_id, fields=DEFAULT_EMAIL_TEMPLATE_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- List Membership Read ---
+
+    @mcp.tool()
+    def pardot_get_list_membership(membership_id: str) -> dict:
+        """Get a single Pardot list membership by ID.
+
+        Args:
+            membership_id: The list membership ID.
+
+        Returns:
+            The membership as a dict, or an error dict on failure.
+        """
+        try:
+            return get_list_membership(membership_id, fields=DEFAULT_LIST_MEMBERSHIP_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Email Read ---
+
+    @mcp.tool()
+    def pardot_query_emails(fields: str = "", limit: int = 200) -> dict:
+        """Query Pardot emails (one-to-one sends).
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of emails to return (default 200).
+
+        Returns:
+            A dict with email data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_EMAIL_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            return query_emails(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_email(email_id: str) -> dict:
+        """Get a single Pardot email by ID.
+
+        Args:
+            email_id: The Pardot email ID.
+
+        Returns:
+            The email as a dict, or an error dict on failure.
+        """
+        try:
+            return get_email(email_id, fields=DEFAULT_EMAIL_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- List Email Read ---
+
+    @mcp.tool()
+    def pardot_query_list_emails(fields: str = "", limit: int = 200) -> dict:
+        """Query Pardot list emails (batch sends to lists).
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of list emails to return (default 200).
+
+        Returns:
+            A dict with list email data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_LIST_EMAIL_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            return query_list_emails(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_list_email(list_email_id: str) -> dict:
+        """Get a single Pardot list email by ID.
+
+        Args:
+            list_email_id: The Pardot list email ID.
+
+        Returns:
+            The list email as a dict, or an error dict on failure.
+        """
+        try:
+            return get_list_email(list_email_id, fields=DEFAULT_LIST_EMAIL_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Custom Field Read ---
+
+    @mcp.tool()
+    def pardot_query_custom_fields(fields: str = "", limit: int = 200) -> dict:
+        """Query Pardot custom fields.
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of custom fields to return (default 200).
+
+        Returns:
+            A dict with custom field data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_CUSTOM_FIELD_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            return query_custom_fields(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_custom_field(field_id: str) -> dict:
+        """Get a single Pardot custom field by ID.
+
+        Args:
+            field_id: The Pardot custom field ID.
+
+        Returns:
+            The custom field as a dict, or an error dict on failure.
+        """
+        try:
+            return get_custom_field(field_id, fields=DEFAULT_CUSTOM_FIELD_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Tag Read ---
+
+    @mcp.tool()
+    def pardot_query_tags(fields: str = "", limit: int = 200) -> dict:
+        """Query Pardot tags.
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of tags to return (default 200).
+
+        Returns:
+            A dict with tag data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_TAG_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            return query_tags(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_tag(tag_id: str) -> dict:
+        """Get a single Pardot tag by ID.
+
+        Args:
+            tag_id: The Pardot tag ID.
+
+        Returns:
+            The tag as a dict, or an error dict on failure.
+        """
+        try:
+            return get_tag(tag_id, fields=DEFAULT_TAG_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Tagged Object Read ---
+
+    @mcp.tool()
+    def pardot_query_tagged_objects(
+        tag_id: str = "", object_type: str = ""
+    ) -> dict:
+        """Query Pardot tagged objects with optional filters.
+
+        Args:
+            tag_id: Filter by tag ID (empty for all).
+            object_type: Filter by object type (empty for all).
+
+        Returns:
+            A dict with tagged object data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": DEFAULT_TAGGED_OBJECT_FIELDS}
+            if tag_id:
+                params["tagId"] = tag_id
+            if object_type:
+                params["objectType"] = object_type
+            return query_tagged_objects(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_tagged_object(tagged_object_id: str) -> dict:
+        """Get a single Pardot tagged object by ID.
+
+        Args:
+            tagged_object_id: The tagged object ID.
+
+        Returns:
+            The tagged object as a dict, or an error dict on failure.
+        """
+        try:
+            return get_tagged_object(tagged_object_id, fields=DEFAULT_TAGGED_OBJECT_FIELDS)
         except Exception as e:
             return {"error": str(e)}

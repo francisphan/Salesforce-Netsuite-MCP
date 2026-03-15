@@ -126,6 +126,12 @@ def query_list_memberships(params: dict | None = None) -> dict:
     return _get("list-memberships", params=params)
 
 
+def get_list_membership(membership_id: str, fields: str | None = None) -> dict:
+    """GET /list-memberships/{id}."""
+    params = {"fields": fields} if fields else None
+    return _get(f"list-memberships/{membership_id}", params=params)
+
+
 # --- Campaigns ---
 
 def query_campaigns(params: dict | None = None) -> dict:
@@ -157,6 +163,71 @@ def get_form(form_id: str, fields: str | None = None) -> dict:
     """GET /forms/{id}."""
     params = {"fields": fields} if fields else None
     return _get(f"forms/{form_id}", params=params)
+
+
+# --- Emails ---
+
+def query_emails(params: dict | None = None) -> dict:
+    """GET /emails with optional filter params."""
+    return _get("emails", params=params)
+
+
+def get_email(email_id: str, fields: str | None = None) -> dict:
+    """GET /emails/{id}."""
+    params = {"fields": fields} if fields else None
+    return _get(f"emails/{email_id}", params=params)
+
+
+# --- List Emails ---
+
+def query_list_emails(params: dict | None = None) -> dict:
+    """GET /list-emails with optional filter params."""
+    return _get("list-emails", params=params)
+
+
+def get_list_email(list_email_id: str, fields: str | None = None) -> dict:
+    """GET /list-emails/{id}."""
+    params = {"fields": fields} if fields else None
+    return _get(f"list-emails/{list_email_id}", params=params)
+
+
+# --- Custom Fields ---
+
+def query_custom_fields(params: dict | None = None) -> dict:
+    """GET /custom-fields with optional filter params."""
+    return _get("custom-fields", params=params)
+
+
+def get_custom_field(field_id: str, fields: str | None = None) -> dict:
+    """GET /custom-fields/{id}."""
+    params = {"fields": fields} if fields else None
+    return _get(f"custom-fields/{field_id}", params=params)
+
+
+# --- Tags ---
+
+def query_tags(params: dict | None = None) -> dict:
+    """GET /tags with optional filter params."""
+    return _get("tags", params=params)
+
+
+def get_tag(tag_id: str, fields: str | None = None) -> dict:
+    """GET /tags/{id}."""
+    params = {"fields": fields} if fields else None
+    return _get(f"tags/{tag_id}", params=params)
+
+
+# --- Tagged Objects ---
+
+def query_tagged_objects(params: dict | None = None) -> dict:
+    """GET /tagged-objects with optional filter params."""
+    return _get("tagged-objects", params=params)
+
+
+def get_tagged_object(tagged_object_id: str, fields: str | None = None) -> dict:
+    """GET /tagged-objects/{id}."""
+    params = {"fields": fields} if fields else None
+    return _get(f"tagged-objects/{tagged_object_id}", params=params)
 
 
 # --- Tracker Domains ---
