@@ -178,7 +178,8 @@ def _post(endpoint: str, body: dict) -> dict:
     """POST helper that returns parsed JSON with retry."""
     def _do(session):
         resp = session.post(f"{BASE_URL}/{endpoint}", json=body)
-        resp.raise_for_status()
+        if not resp.ok:
+            raise Exception(f"{resp.status_code} {resp.reason}: {resp.text}")
         return resp.json()
     return _with_retry(_do)
 
