@@ -274,6 +274,18 @@ def _patch(endpoint: str, body: dict) -> dict:
     return _with_retry(_do)
 
 
+def _put(endpoint: str, body: dict) -> dict:
+    """PUT helper that returns parsed JSON with retry."""
+    def _do(session):
+        resp = session.put(f"{BASE_URL}/{endpoint}", json=body)
+        if not resp.ok:
+            raise Exception(f"{resp.status_code} {resp.reason}: {resp.text}")
+        if resp.status_code == 204 or not resp.content or not resp.text.strip():
+            return {"success": True}
+        return resp.json()
+    return _with_retry(_do)
+
+
 def _delete(endpoint: str) -> dict:
     """DELETE helper that returns parsed JSON (or success flag on 204) with retry."""
     def _do(session):
@@ -469,6 +481,9 @@ def create_list_email(data: dict) -> dict:
 def update_email_template(template_id: str, data: dict) -> dict:
     """Update an existing Pardot email template.
 
+    Uses PUT instead of PATCH to work around Pardot v5 API error 84 on PATCH.
+    PUT requires the full object, so we first GET the template and merge updates.
+
     Args:
         template_id: The email template ID.
         data: Dict of fields to update.
@@ -476,7 +491,7 @@ def update_email_template(template_id: str, data: dict) -> dict:
     Returns:
         The updated email template as a dict.
     """
-    return _patch(f"email-templates/{template_id}", data)
+    return _put(f"email-templates/{template_id}", data)
 
 
 def delete_email_template(template_id: str) -> dict:
