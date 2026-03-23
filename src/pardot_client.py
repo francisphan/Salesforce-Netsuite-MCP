@@ -372,7 +372,9 @@ def _post(endpoint: str, body: dict) -> dict:
 
     def _do(session):
         resp = session.post(f"{BASE_URL}/{endpoint}", json=body)
-        resp.raise_for_status()
+        if not resp.ok:
+            error_body = resp.text[:2000] if resp.text else "(empty)"
+            raise Exception(f"{resp.status_code} {resp.reason}: {error_body}")
         return resp.json()
 
     return _with_retry(_do)
@@ -384,7 +386,9 @@ def _patch(endpoint: str, body: dict) -> dict:
 
     def _do(session):
         resp = session.patch(f"{BASE_URL}/{endpoint}", json=body)
-        resp.raise_for_status()
+        if not resp.ok:
+            error_body = resp.text[:2000] if resp.text else "(empty)"
+            raise Exception(f"{resp.status_code} {resp.reason}: {error_body}")
         if resp.status_code == 204 or not resp.content or not resp.text.strip():
             return {"success": True}
         return resp.json()
