@@ -316,3 +316,89 @@ def upsert_record(
         )
 
     return _with_retry(_do)
+
+
+# ---------------------------------------------------------------------------
+# New capabilities
+# ---------------------------------------------------------------------------
+
+
+def search(sosl_query: str) -> list[dict]:
+    """Run a SOSL search query with retry."""
+
+    def _do(sf):
+        result = sf.search(sosl_query)
+        return result.get("searchRecords", [])
+
+    return _with_retry(_do)
+
+
+def quick_search(search_term: str) -> list[dict]:
+    """Run a quick SOSL search across all objects with retry.
+
+    Falls back to a manual SOSL FIND query if quick_search is not available.
+    """
+
+    def _do(sf):
+        if hasattr(sf, "quick_search"):
+            result = sf.quick_search(search_term)
+        else:
+            # Fallback: construct a basic SOSL query with proper escaping
+            escaped = escape_sosl(search_term)
+            result = sf.search(f"FIND {{{escaped}}} IN ALL FIELDS")
+        return result.get("searchRecords", [])
+
+    return _with_retry(_do)
+
+
+def get_limits() -> dict:
+    """Return current Salesforce API usage limits."""
+
+    def _do(sf):
+        return sf.limits()
+
+    return _with_retry(_do)
+
+
+_BULK_ALLOWED_OPS = frozenset(("insert", "update", "upsert", "delete"))
+
+
+def bulk_operation(
+    object_name: str,
+    operation: str,
+    records: list[dict],
+    external_id_field: str | None = None,
+    batch_size: int = 10000,
+) -> list[dict]:
+    """Run a bulk API operation (insert, update, upsert, delete)."""
+    validate_object_name(object_name)
+    if operation not in _BULK_ALLOWED_OPS:
+        raise ValueError(f"Invalid bulk operation: {operation!r}")
+
+    def _do(sf):
+        bulk_obj = getattr(sf.bulk, object_name)
+        op_func = getattr(bulk_obj, operation)
+        kwargs: dict = {"batch_size": batch_size}
+        if operation == "upsert" and external_id_field:
+            kwargs["external_id_field"] = external_id_field
+        results = op_func(records, **kwargs)
+        # simple-salesforce bulk API may return nested lists (one per batch) — flatten
+        if results and isinstance(results[0], list):
+            return [item for batch in results for item in batch]
+        return results
+
+    # insert and delete are non-idempotent (duplicates / re-deletes)
+    is_idempotent = operation in ("update", "upsert")
+    return _with_retry(_do, idempotent=is_idempotent)
+
+
+def get_recent_items(limit: int | None = None) -> dict | list:
+    """Return recently viewed Salesforce records."""
+
+    def _do(sf):
+        path = "recent/"
+        if limit:
+            path += f"?limit={int(limit)}"
+        return sf.restful(path)
+
+    return _with_retry(_do)

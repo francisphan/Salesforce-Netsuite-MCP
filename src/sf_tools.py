@@ -57,7 +57,7 @@ def register_tools(mcp):
             return {
                 "validation_errors": validation["warnings"],
                 "suggestions": validation["suggestions"],
-                "note": "Query was still executed — check results below.",
+                "note": "Query was NOT executed due to validation errors. Fix the issues above and retry.",
             }
 
         try:
@@ -150,3 +150,66 @@ def register_tools(mcp):
                     break
 
         return result
+
+    @mcp.tool()
+    def sf_search(sosl_query: str = "", search_term: str = "") -> list[dict] | dict:
+        """Search across multiple Salesforce objects using SOSL (full-text search).
+
+        Two modes:
+        1. Full SOSL: Pass sosl_query with a complete SOSL query string
+           (e.g. "FIND {John Smith} IN ALL FIELDS RETURNING Contact, Lead, Account")
+        2. Quick search: Pass search_term for a simple cross-object text search.
+
+        Use this instead of sf_soql_query when you don't know which object contains
+        the data, or need to search across multiple objects simultaneously.
+
+        Args:
+            sosl_query: Full SOSL query string. Takes precedence if both provided.
+            search_term: Simple search string for quick cross-object search.
+
+        Returns:
+            A list of matching record dicts, or an error dict on failure.
+        """
+        if not sosl_query and not search_term:
+            return {"error": "Provide either sosl_query or search_term."}
+        try:
+            if sosl_query:
+                return search(sosl_query)
+            return quick_search(search_term)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def sf_get_limits() -> dict:
+        """Return current Salesforce API usage and org limits.
+
+        Shows daily API call counts, remaining quota, data storage, and other
+        org limits. No parameters needed. Useful for monitoring API consumption
+        before running bulk operations.
+
+        Returns:
+            A dict of limit names to their Max/Remaining values.
+        """
+        try:
+            return get_limits()
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def sf_recent_items(limit: int = 20) -> list[dict] | dict:
+        """Return recently viewed/accessed Salesforce records for the connected user.
+
+        Useful for understanding what the current user has been working on
+        or for quickly accessing recently viewed records.
+
+        Args:
+            limit: Maximum number of recent items to return (default 20, max 200).
+
+        Returns:
+            A list of recently viewed record dicts, or an error dict on failure.
+        """
+        try:
+            capped = min(max(limit, 1), 200)
+            return get_recent_items(capped)
+        except Exception as e:
+            return {"error": str(e)}
