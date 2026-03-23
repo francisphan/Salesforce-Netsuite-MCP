@@ -430,10 +430,14 @@ def create_email_template(data: dict) -> dict:
 
     Args:
         data: Dict of email template fields (e.g. name, subject, htmlMessage, folderId).
+        HML merge tags in htmlMessage will be auto-converted to Pardot variable tags.
 
     Returns:
         The created email template as a dict.
     """
+    if "htmlMessage" in data:
+        data = dict(data)
+        data["htmlMessage"] = _convert_hml_to_pardot_tags(data["htmlMessage"])
     return _post("email-templates", data)
 
 
@@ -596,16 +600,45 @@ def create_list_email(data: dict) -> dict:
 # --- Email Template Write Operations ---
 
 
+def _convert_hml_to_pardot_tags(html: str) -> str:
+    """Convert Handlebars (HML) merge tags to legacy Pardot %%variable%% tags.
+
+    The Pardot v5 API requires legacy variable tags even though the UI supports HML.
+    """
+    import re
+    # Unsubscribe / preference center
+    html = html.replace("{{EmailPreferenceCenter}}", "%%email_preference_center%%")
+    html = html.replace("{{UnsubscribeLink}}", "%%unsubscribe%%")
+    # Conditional first name: {{#if Recipient.FirstName}}...{{/if}}{{#unless Recipient.FirstName}}...{{/unless}}
+    # Convert to: %%if:first_name%%...%%end%%...%%else:%%...%%end%%
+    # Handle the if/unless pattern used for greetings
+    html = re.sub(
+        r'\{\{#if Recipient\.FirstName\}\}(.*?)\{\{/if\}\}\{\{#unless Recipient\.FirstName\}\}(.*?)\{\{/unless\}\}',
+        r'%%if:first_name%%\1%%else:%%\2%%end%%',
+        html,
+        flags=re.DOTALL,
+    )
+    # Simple field references
+    html = html.replace("{{Recipient.FirstName}}", "%%first_name%%")
+    html = html.replace("{{Recipient.LastName}}", "%%last_name%%")
+    html = html.replace("{{Recipient.Email}}", "%%email%%")
+    html = html.replace("{{Recipient.Company}}", "%%company%%")
+    return html
+
+
 def update_email_template(template_id: str, data: dict) -> dict:
     """Update an existing Pardot email template.
 
     Args:
         template_id: The email template ID.
-        data: Dict of fields to update.
+        data: Dict of fields to update (htmlMessage will auto-convert HML to Pardot tags).
 
     Returns:
         The updated email template as a dict.
     """
+    if "htmlMessage" in data:
+        data = dict(data)  # Don't mutate the original
+        data["htmlMessage"] = _convert_hml_to_pardot_tags(data["htmlMessage"])
     return _patch(f"email-templates/{template_id}", data)
 
 
