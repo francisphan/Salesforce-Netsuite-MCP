@@ -86,6 +86,40 @@ register_pardot_write_tools(mcp)
 
 
 # ---------------------------------------------------------------------------
+# Schema cache management
+# ---------------------------------------------------------------------------
+from src.schema_cache import schema_cache  # noqa: E402
+
+
+@mcp.tool()
+def schema_cache_stats() -> dict:
+    """Return cache statistics for the live API schema cache.
+
+    Shows TTL, refresh interval, and per-entry age/staleness — useful for
+    diagnosing whether cached data is current.
+    """
+    return schema_cache.stats()
+
+
+@mcp.tool()
+def schema_cache_invalidate(key: str = "") -> dict:
+    """Force-invalidate the schema cache so the next read fetches fresh data.
+
+    Args:
+        key: Specific cache key to invalidate (from schema_cache_stats).
+             If empty, invalidates the entire cache.
+
+    Returns:
+        Confirmation dict.
+    """
+    if key.strip():
+        schema_cache.invalidate(key.strip())
+        return {"invalidated": key.strip()}
+    schema_cache.invalidate()
+    return {"invalidated": "all"}
+
+
+# ---------------------------------------------------------------------------
 # Resources — browsable context for AI clients
 # ---------------------------------------------------------------------------
 from src.sf_schema import SCHEMA as SF_SCHEMA  # noqa: E402

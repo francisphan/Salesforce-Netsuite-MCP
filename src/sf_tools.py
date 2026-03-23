@@ -1,6 +1,10 @@
 """Salesforce MCP tool definitions."""
 
-from src.sf_client import describe_object, get_record, list_objects, query, query_page
+from src.sf_client import (
+    get_record, query, query_page,
+    search, quick_search, get_limits, get_recent_items,
+)
+from src.schema_cache import schema_cache
 from src.sf_schema import SCHEMA, OBJECT_NAMES
 from src.query_validator import validate_soql, enhance_sf_error
 
@@ -74,6 +78,8 @@ def register_tools(mcp):
     def sf_describe_object(object_name: str) -> dict:
         """Describe a Salesforce object's metadata including fields, relationships, and properties.
 
+        Results are cached and refreshed automatically in the background.
+
         Args:
             object_name: API name of the SObject (e.g. "Account", "TVRS_Guest__c").
 
@@ -81,7 +87,7 @@ def register_tools(mcp):
             Object metadata dict, or an error dict on failure.
         """
         try:
-            return describe_object(object_name)
+            return schema_cache.sf_describe(object_name)
         except Exception as e:
             return {"error": str(e)}
 
@@ -89,11 +95,13 @@ def register_tools(mcp):
     def sf_list_objects() -> list[str]:
         """List all queryable Salesforce object API names, sorted alphabetically.
 
+        Results are cached and refreshed automatically in the background.
+
         Returns:
             A sorted list of object names, or a single-element list with an error dict on failure.
         """
         try:
-            return list_objects()
+            return schema_cache.sf_list_objects()
         except Exception as e:
             return [{"error": str(e)}]
 

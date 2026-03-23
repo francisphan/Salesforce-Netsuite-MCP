@@ -1,13 +1,12 @@
 """NetSuite MCP tool definitions."""
 
 from src.ns_client import (
-    get_record_schema,
-    list_record_types,
     rest_get,
     rest_list,
     suiteql_query,
     suiteql_query_page,
 )
+from src.schema_cache import schema_cache
 from src.ns_schema import SCHEMA as NS_SCHEMA
 from src.query_validator import validate_suiteql, enhance_ns_error
 
@@ -114,17 +113,21 @@ def register_tools(mcp):
     def ns_list_record_types() -> dict:
         """List all available NetSuite record types from the metadata catalog.
 
+        Results are cached and refreshed automatically in the background.
+
         Returns:
             A dict of record type metadata, or an error dict on failure.
         """
         try:
-            return list_record_types()
+            return schema_cache.ns_list_record_types()
         except Exception as e:
             return {"error": str(e)}
 
     @mcp.tool()
     def ns_get_record_schema(record_type: str) -> dict:
         """Get the field schema for a NetSuite record type from the REST metadata API.
+
+        Results are cached and refreshed automatically in the background.
 
         For common record types (customer, salesOrder, invoice, item, transaction,
         vendor, employee, contact), prefer ns_get_netsuite_schema which returns
@@ -137,7 +140,7 @@ def register_tools(mcp):
             A dict describing the record's fields and structure, or an error dict on failure.
         """
         try:
-            return get_record_schema(record_type)
+            return schema_cache.ns_get_record_schema(record_type)
         except Exception as e:
             return {"error": str(e)}
 
