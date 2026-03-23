@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any, Iterator
 
 from .._pagination import SyncPageIterator, iter_items_sync
@@ -9,6 +10,9 @@ from ..models import PaginatedResponse
 
 if TYPE_CHECKING:
     from ..client import NetSuiteClient
+
+_RECORD_TYPE_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{0,99}$")
+_RECORD_ID_RE = re.compile(r"^[a-zA-Z0-9._@+%-]+$")
 
 
 class RestApi:
@@ -19,9 +23,14 @@ class RestApi:
         self._base_path = "/services/rest/record/v1"
 
     def _record_path(self, record_type: str, record_id: str | int | None = None) -> str:
+        if not _RECORD_TYPE_RE.match(record_type):
+            raise ValueError(f"Invalid record type: {record_type!r}")
         path = f"{self._base_path}/{record_type}"
         if record_id is not None:
-            path = f"{path}/{record_id}"
+            rid = str(record_id)
+            if not rid or ".." in rid or "/" in rid or not _RECORD_ID_RE.match(rid):
+                raise ValueError(f"Invalid record ID: {record_id!r}")
+            path = f"{path}/{rid}"
         return path
 
     def get(

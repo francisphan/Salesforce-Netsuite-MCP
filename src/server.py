@@ -1,5 +1,6 @@
 """MCP server entrypoint for Salesforce & NetSuite tools."""
 
+import hmac
 import json
 import os
 
@@ -37,12 +38,12 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
         bearer = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
 
         # Check write token first (it grants superset of read access)
-        if WRITE_TOKEN and bearer == WRITE_TOKEN:
+        if WRITE_TOKEN and hmac.compare_digest(bearer, WRITE_TOKEN):
             AUTH_LEVEL.set("write")
             return await call_next(request)
 
         # Check read token
-        if READ_TOKEN and bearer == READ_TOKEN:
+        if READ_TOKEN and hmac.compare_digest(bearer, READ_TOKEN):
             AUTH_LEVEL.set("read")
             return await call_next(request)
 

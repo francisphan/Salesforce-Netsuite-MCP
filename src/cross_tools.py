@@ -1,5 +1,6 @@
 """Cross-system lookup tools that correlate data across Salesforce, NetSuite, and Pardot."""
 
+from src.sanitize import escape_soql, escape_suiteql, validate_sf_id
 from src.sf_client import query as sf_query
 from src.ns_client import suiteql_query
 from src.pardot_client import query_prospects
@@ -20,14 +21,14 @@ def lookup_guest(email: str) -> dict:
             f"Check_In_Date__c, Check_Out_Date__c, Villa_number__c, "
             f"Contact__c, Contact__r.AccountId "
             f"FROM TVRS_Guest__c "
-            f"WHERE Email__c = '{email_lower}' "
+            f"WHERE Email__c = '{escape_soql(email_lower)}' "
             f"ORDER BY Check_In_Date__c DESC LIMIT 5"
         )
         # Also search Person Account
         sf_accounts = sf_query(
             f"SELECT Id, Name, PersonEmail, IsPersonAccount "
             f"FROM Account "
-            f"WHERE PersonEmail = '{email_lower}' LIMIT 1"
+            f"WHERE PersonEmail = '{escape_soql(email_lower)}' LIMIT 1"
         )
         result["salesforce"] = {
             "guest_records": sf_records,
@@ -42,7 +43,7 @@ def lookup_guest(email: str) -> dict:
             f"SELECT id, entityid, companyname, firstname, lastname, email, "
             f"phone, isperson, balance "
             f"FROM customer "
-            f"WHERE LOWER(email) = '{email_lower}'"
+            f"WHERE LOWER(email) = '{escape_suiteql(email_lower)}'"
         )
         result["netsuite"] = {"customers": ns_records}
     except Exception as e:
@@ -84,7 +85,7 @@ def guest_360(email: str) -> dict:
             f"City__c, Country__c, Language__c, Comments__c, "
             f"Contact__c, Contact__r.AccountId "
             f"FROM TVRS_Guest__c "
-            f"WHERE Email__c = '{email_lower}' "
+            f"WHERE Email__c = '{escape_soql(email_lower)}' "
             f"ORDER BY Check_In_Date__c DESC"
         )
         if stays:
@@ -110,10 +111,11 @@ def guest_360(email: str) -> dict:
         # Opportunities via Account
         account_id = profile["system_ids"].get("sf_account_id")
         if account_id:
+            validate_sf_id(account_id)
             opps = sf_query(
                 f"SELECT Id, Name, StageName, Amount, CloseDate, IsClosed, IsWon "
                 f"FROM Opportunity "
-                f"WHERE AccountId = '{account_id}' "
+                f"WHERE AccountId = '{escape_soql(account_id)}' "
                 f"ORDER BY CloseDate DESC LIMIT 10"
             )
             profile["financials"]["sf_opportunities"] = opps
@@ -128,7 +130,7 @@ def guest_360(email: str) -> dict:
             f"SELECT id, entityid, companyname, firstname, lastname, email, "
             f"phone, isperson, balance "
             f"FROM customer "
-            f"WHERE LOWER(email) = '{email_lower}'"
+            f"WHERE LOWER(email) = '{escape_suiteql(email_lower)}'"
         )
         if customers:
             cust = customers[0]
@@ -140,7 +142,7 @@ def guest_360(email: str) -> dict:
                 profile["identity"]["last_name"] = cust.get("lastname")
 
             # Recent transactions
-            cust_id = cust["id"]
+            cust_id = int(cust["id"])
             txns = suiteql_query(
                 f"SELECT t.id, t.tranid, t.type, t.trandate, t.status, t.foreigntotal "
                 f"FROM transaction t "

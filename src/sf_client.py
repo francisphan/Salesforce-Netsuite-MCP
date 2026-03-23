@@ -6,8 +6,14 @@ import time
 from pathlib import Path
 
 from dotenv import load_dotenv
+from requests.exceptions import ConnectionError as RequestsConnectionError, Timeout
 from simple_salesforce import Salesforce
-from simple_salesforce.exceptions import SalesforceExpiredSession
+from simple_salesforce.exceptions import (
+    SalesforceError,
+    SalesforceExpiredSession,
+)
+
+from src.sanitize import escape_sosl, validate_object_name, validate_path_segment, validate_sf_id
 
 load_dotenv()
 
@@ -30,7 +36,9 @@ def _save_token(instance_url: str, access_token: str, refresh_token: str | None 
                 cache["refresh_token"] = old["refresh_token"]
         except Exception:
             pass
-    TOKEN_CACHE.write_text(json.dumps(cache))
+    fd = os.open(str(TOKEN_CACHE), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(cache, f)
 
 
 def _load_cached_token() -> Salesforce | None:
@@ -142,22 +150,49 @@ def get_client() -> Salesforce:
     return _sf_holder[0]
 
 
-def _with_retry(func):
-    """Execute func(sf) with retry on transient errors and re-auth on expired session."""
+def _with_retry(func, *, idempotent: bool = True):
+    """Execute func(sf) with retry on transient errors and re-auth on expired session.
+
+    Args:
+        func: Callable taking a Salesforce instance.
+        idempotent: If False (e.g. creates), only retry on auth expiry and
+                    connection-level errors to avoid duplicate records.
+    """
     if _sf_holder[0] is None:
         get_client()
     last_exc = None
     for attempt in range(MAX_RETRIES):
         try:
             return func(_sf_holder[0])
-        except SalesforceExpiredSession:
+        except SalesforceExpiredSession as e:
+            last_exc = e
             _sf_holder[0] = _reconnect()
             continue
-        except Exception as e:
+        except RequestsConnectionError as e:
+            # Connection never reached the server — safe to retry even for writes
             last_exc = e
             if attempt < MAX_RETRIES - 1:
                 time.sleep(RETRY_BACKOFF * (2**attempt))
             continue
+        except (Timeout, OSError) as e:
+            # Timeout/OS errors: request may have reached the server
+            if not idempotent:
+                raise
+            last_exc = e
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(RETRY_BACKOFF * (2**attempt))
+            continue
+        except SalesforceError as e:
+            # Salesforce API errors (malformed query, permission denied, etc.)
+            # Only retry for idempotent ops — these may be transient server errors
+            if not idempotent:
+                raise
+            last_exc = e
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(RETRY_BACKOFF * (2**attempt))
+            continue
+    if last_exc is None:
+        raise RuntimeError("All retry attempts exhausted; OAuth refresh may be broken.")
     raise last_exc
 
 
@@ -202,6 +237,7 @@ def query_page(soql: str = "", next_records_url: str = "") -> dict:
 
 def describe_object(object_name: str) -> dict:
     """Describe a Salesforce object with retry."""
+    validate_object_name(object_name)
 
     def _do(sf):
         return getattr(sf, object_name).describe()
@@ -221,6 +257,8 @@ def list_objects() -> list[str]:
 
 def get_record(object_name: str, record_id: str) -> dict:
     """Get a single record by Id with retry."""
+    validate_object_name(object_name)
+    validate_sf_id(record_id)
 
     def _do(sf):
         record = getattr(sf, object_name).get(record_id)
@@ -231,36 +269,46 @@ def get_record(object_name: str, record_id: str) -> dict:
 
 
 def create_record(object_name: str, data: dict) -> dict:
-    """Create a new Salesforce record with retry."""
+    """Create a new Salesforce record (non-idempotent — only retries on connection errors)."""
+    validate_object_name(object_name)
 
     def _do(sf):
         return getattr(sf, object_name).create(data)
 
-    return _with_retry(_do)
+    return _with_retry(_do, idempotent=False)
 
 
 def update_record(object_name: str, record_id: str, data: dict) -> dict:
     """Update an existing Salesforce record by Id with retry."""
+    validate_object_name(object_name)
+    validate_sf_id(record_id)
 
     def _do(sf):
-        return getattr(sf, object_name).update(record_id, data)
+        status = getattr(sf, object_name).update(record_id, data)
+        return {"success": True, "id": record_id, "status_code": status}
 
     return _with_retry(_do)
 
 
 def delete_record(object_name: str, record_id: str) -> dict:
-    """Delete a Salesforce record by Id with retry."""
+    """Delete a Salesforce record by Id (non-idempotent — retrying may re-delete)."""
+    validate_object_name(object_name)
+    validate_sf_id(record_id)
 
     def _do(sf):
-        return getattr(sf, object_name).delete(record_id)
+        status = getattr(sf, object_name).delete(record_id)
+        return {"success": True, "id": record_id, "status_code": status}
 
-    return _with_retry(_do)
+    return _with_retry(_do, idempotent=False)
 
 
 def upsert_record(
     object_name: str, external_id_field: str, external_id: str, data: dict
 ) -> dict:
     """Upsert a Salesforce record using an external ID field with retry."""
+    validate_object_name(object_name)
+    validate_object_name(external_id_field)
+    validate_path_segment(external_id)
 
     def _do(sf):
         return getattr(sf, object_name).upsert(

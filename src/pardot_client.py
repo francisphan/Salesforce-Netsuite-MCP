@@ -1,6 +1,7 @@
 """Pardot (Account Engagement) API v5 client, reusing Salesforce OAuth token."""
 
 import os
+import re
 import time
 
 import requests
@@ -21,6 +22,24 @@ MAX_RETRIES = 3
 RETRY_BACKOFF = 2  # seconds, doubled each retry
 
 _pardot_session: list[requests.Session | None] = [None]
+
+# Pattern for safe path segments (each part between slashes in endpoint strings).
+# Allows alphanumeric, hyphens, dots, underscores — no traversal.
+_SAFE_SEGMENT_RE = re.compile(r"^[a-zA-Z0-9._@+%-]+$")
+
+
+def _validate_endpoint(endpoint: str) -> str:
+    """Validate that an endpoint path has no traversal or injection.
+
+    Each segment between slashes must match a safe pattern.
+    Raises ValueError on suspicious input.
+    """
+    for segment in endpoint.split("/"):
+        if not segment:
+            continue  # leading/trailing/double slashes are harmless
+        if ".." in segment or not _SAFE_SEGMENT_RE.match(segment):
+            raise ValueError(f"Invalid endpoint segment: {segment!r} in {endpoint!r}")
+    return endpoint
 
 
 def _get_business_unit_id() -> str:
@@ -93,6 +112,7 @@ def _with_retry(func):
 
 def _get(endpoint: str, params: dict | None = None) -> dict | list:
     """GET helper that returns parsed JSON with retry."""
+    _validate_endpoint(endpoint)
 
     def _do(session):
         resp = session.get(f"{BASE_URL}/{endpoint}", params=params)
@@ -291,10 +311,12 @@ def download_engagement_studio_program_structure(program_id: str) -> bytes:
 
     Returns the raw bytes of the structure file (not JSON).
     """
+    endpoint = f"engagement-studio-programs/{program_id}/download-program-structure"
+    _validate_endpoint(endpoint)
 
     def _do(session):
         resp = session.get(
-            f"{BASE_URL}/engagement-studio-programs/{program_id}/download-program-structure",
+            f"{BASE_URL}/{endpoint}",
             headers={"Accept": "application/octet-stream"},
         )
         resp.raise_for_status()
@@ -346,6 +368,7 @@ def create_engagement_studio_program(
 
 def _post(endpoint: str, body: dict) -> dict:
     """POST helper that returns parsed JSON with retry."""
+    _validate_endpoint(endpoint)
 
     def _do(session):
         resp = session.post(f"{BASE_URL}/{endpoint}", json=body)
@@ -357,6 +380,7 @@ def _post(endpoint: str, body: dict) -> dict:
 
 def _patch(endpoint: str, body: dict) -> dict:
     """PATCH helper that returns parsed JSON with retry."""
+    _validate_endpoint(endpoint)
 
     def _do(session):
         resp = session.patch(f"{BASE_URL}/{endpoint}", json=body)
@@ -370,6 +394,7 @@ def _patch(endpoint: str, body: dict) -> dict:
 
 def _delete(endpoint: str) -> dict:
     """DELETE helper that returns parsed JSON (or success flag on 204) with retry."""
+    _validate_endpoint(endpoint)
 
     def _do(session):
         resp = session.delete(f"{BASE_URL}/{endpoint}")
@@ -679,6 +704,7 @@ def delete_tag(tag_id: str) -> dict:
 
 def _get_v5(endpoint: str, params: dict | None = None) -> dict | list:
     """GET helper for /api/v5/ endpoints (not under /objects/)."""
+    _validate_endpoint(endpoint)
 
     def _do(session):
         resp = session.get(f"{BASE_URL_V5}/{endpoint}", params=params)
@@ -690,6 +716,7 @@ def _get_v5(endpoint: str, params: dict | None = None) -> dict | list:
 
 def _post_v5(endpoint: str, body: dict) -> dict:
     """POST helper for /api/v5/ endpoints (not under /objects/)."""
+    _validate_endpoint(endpoint)
 
     def _do(session):
         resp = session.post(f"{BASE_URL_V5}/{endpoint}", json=body)
@@ -701,6 +728,7 @@ def _post_v5(endpoint: str, body: dict) -> dict:
 
 def _patch_v5(endpoint: str, body: dict) -> dict:
     """PATCH helper for /api/v5/ endpoints (not under /objects/)."""
+    _validate_endpoint(endpoint)
 
     def _do(session):
         resp = session.patch(f"{BASE_URL_V5}/{endpoint}", json=body)
@@ -714,6 +742,7 @@ def _patch_v5(endpoint: str, body: dict) -> dict:
 
 def _get_raw_v5(endpoint: str) -> bytes:
     """GET helper that returns raw bytes (for CSV downloads etc.)."""
+    _validate_endpoint(endpoint)
 
     def _do(session):
         resp = session.get(f"{BASE_URL_V5}/{endpoint}")
@@ -1272,12 +1301,14 @@ def query_imports(params: dict | None = None) -> dict:
 
 def upload_import_batch(import_id: str, csv_bytes: bytes) -> dict:
     """POST /imports/{id}/batches — upload a CSV batch."""
+    endpoint = f"imports/{import_id}/batches"
+    _validate_endpoint(endpoint)
 
     def _do(session):
         original_ct = session.headers.pop("Content-Type", None)
         try:
             resp = session.post(
-                f"{BASE_URL_V5}/imports/{import_id}/batches",
+                f"{BASE_URL_V5}/{endpoint}",
                 files={"data": ("batch.csv", csv_bytes, "text/csv")},
             )
             resp.raise_for_status()
