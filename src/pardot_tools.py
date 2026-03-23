@@ -1,30 +1,82 @@
 """Pardot / Account Engagement MCP tool definitions."""
 
+import base64
+
 from src.pardot_client import (
+    download_engagement_studio_program_structure,
+    download_export_results,
+    download_import_errors,
+    get_account,
     get_campaign,
     get_custom_field,
+    get_custom_redirect,
+    get_dynamic_content,
+    get_dynamic_content_variation,
     get_email,
     get_email_template,
+    get_engagement_studio_program,
+    get_export,
+    get_external_activity,
+    get_file,
+    get_folder,
     get_form,
+    get_form_field,
+    get_form_handler,
+    get_form_handler_field,
+    get_import,
+    get_landing_page,
+    get_layout_template,
+    get_lifecycle_history,
+    get_lifecycle_stage,
     get_list,
     get_list_email,
+    get_list_email_stats,
     get_list_membership,
+    get_opportunity,
     get_prospect,
+    get_prospect_account,
     get_tag,
     get_tagged_object,
+    get_tracker_domain,
+    get_user,
+    get_visit,
+    get_visitor,
+    get_visitor_activity,
     query_campaigns,
     query_custom_fields,
+    query_custom_redirects,
+    query_dynamic_content_variations,
+    query_dynamic_contents,
     query_email_templates,
     query_emails,
+    query_engagement_studio_programs,
+    query_exports,
+    query_external_activities,
+    query_files,
+    query_folder_contents,
+    query_folders,
+    query_form_fields,
+    query_form_handler_fields,
+    query_form_handlers,
     query_forms,
+    query_imports,
+    query_landing_pages,
+    query_layout_templates,
+    query_lifecycle_histories,
+    query_lifecycle_stages,
     query_list_emails,
     query_list_memberships,
     query_lists,
+    query_opportunities,
+    query_prospect_accounts,
     query_prospects,
     query_tagged_objects,
     query_tags,
     query_tracker_domains,
+    query_users,
     query_visitor_activities,
+    query_visits,
+    query_visitors,
 )
 
 # Pardot API v5 requires explicit field selection — these are sensible defaults.
@@ -56,6 +108,51 @@ DEFAULT_CUSTOM_FIELD_FIELDS = (
 )
 DEFAULT_TAG_FIELDS = "id,name,createdAt,updatedAt"
 DEFAULT_TAGGED_OBJECT_FIELDS = "id,tagId,objectType,objectId,createdAt"
+DEFAULT_TRACKER_DOMAIN_FIELDS = "id,domain,isPrimary,isDeleted"
+DEFAULT_ENGAGEMENT_STUDIO_PROGRAM_FIELDS = (
+    "id,name,status,recipientListId,senderType,senderId,"
+    "folderId,campaignId,createdAt,updatedAt"
+)
+DEFAULT_VISITOR_FIELDS = "id,pageViewCount,prospectId,createdAt,updatedAt"
+DEFAULT_VISIT_FIELDS = (
+    "id,visitorId,prospectId,visitorPageViewCount,"
+    "durationInSeconds,campaignId,createdAt"
+)
+DEFAULT_PROSPECT_ACCOUNT_FIELDS = (
+    "id,name,city,state,country,phone,website,"
+    "annualRevenue,employeeCount,createdAt,updatedAt"
+)
+DEFAULT_OPPORTUNITY_FIELDS = (
+    "id,name,value,probability,type,status,closedAt,campaignId,createdAt,updatedAt"
+)
+DEFAULT_LIFECYCLE_STAGE_FIELDS = "id,name,position,isLocked,createdAt,updatedAt"
+DEFAULT_LIFECYCLE_HISTORY_FIELDS = (
+    "id,prospectId,previousStageId,nextStageId,secondsInStage,createdAt"
+)
+DEFAULT_USER_FIELDS = "id,email,firstName,lastName,role,createdAt,updatedAt"
+DEFAULT_ACCOUNT_FIELDS = "id,company,website,createdAt"
+DEFAULT_FOLDER_FIELDS = "id,name,parentFolderId,createdAt,updatedAt"
+DEFAULT_FOLDER_CONTENT_FIELDS = "id,folderId,objectType,objectId"
+DEFAULT_CUSTOM_REDIRECT_FIELDS = (
+    "id,name,url,destinationUrl,campaignId,trackerDomainId,folderId,createdAt,updatedAt"
+)
+DEFAULT_FORM_HANDLER_FIELDS = (
+    "id,name,url,campaignId,trackerDomainId,folderId,createdAt,updatedAt"
+)
+DEFAULT_FORM_HANDLER_FIELD_FIELDS = "id,formHandlerId,prospectFieldId,fieldName,isRequired,dataFormat,createdAt,updatedAt"
+DEFAULT_LAYOUT_TEMPLATE_FIELDS = "id,name,folderId,createdAt,updatedAt"
+DEFAULT_FILE_FIELDS = "id,name,folderId,url,size,createdAt,updatedAt"
+DEFAULT_LANDING_PAGE_FIELDS = (
+    "id,name,url,campaignId,trackerDomainId,folderId,createdAt,updatedAt"
+)
+DEFAULT_DYNAMIC_CONTENT_FIELDS = "id,name,basedOn,folderId,createdAt,updatedAt"
+DEFAULT_DYNAMIC_CONTENT_VARIATION_FIELDS = (
+    "id,dynamicContentId,comparison,value,content,createdAt,updatedAt"
+)
+DEFAULT_FORM_FIELD_FIELDS = (
+    "id,formId,prospectFieldId,fieldName,type,isRequired,createdAt,updatedAt"
+)
+DEFAULT_EXTERNAL_ACTIVITY_FIELDS = "id,type,value,prospectId,activityDate,createdAt"
 
 
 def register_tools(mcp):
@@ -299,7 +396,7 @@ def register_tools(mcp):
             A dict with tracker domain data and optionally 'nextPageToken' for pagination, or an error dict on failure.
         """
         try:
-            params = {"fields": fields or "id,domain,isPrimary,isDeleted"}
+            params = {"fields": fields or DEFAULT_TRACKER_DOMAIN_FIELDS}
             if limit != 200:
                 params["limit"] = limit
             if cursor:
@@ -570,5 +667,1054 @@ def register_tools(mcp):
             return get_tagged_object(
                 tagged_object_id, fields=DEFAULT_TAGGED_OBJECT_FIELDS
             )
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Engagement Studio Program Read ---
+
+    @mcp.tool()
+    def pardot_query_engagement_studio_programs(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot Engagement Studio programs.
+
+        Args:
+            fields: Comma-separated field names to return (empty for all default fields).
+            limit: Maximum number of programs to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+
+        Returns:
+            A dict with program data and optionally 'nextPageToken' for pagination, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_ENGAGEMENT_STUDIO_PROGRAM_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_engagement_studio_programs(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_engagement_studio_program(program_id: str) -> dict:
+        """Get a single Pardot Engagement Studio program by ID.
+
+        Args:
+            program_id: The Engagement Studio program ID.
+
+        Returns:
+            The program as a dict, or an error dict on failure.
+        """
+        try:
+            return get_engagement_studio_program(
+                program_id, fields=DEFAULT_ENGAGEMENT_STUDIO_PROGRAM_FIELDS
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_download_engagement_studio_program_structure(program_id: str) -> dict:
+        """Download the structure file of a Pardot Engagement Studio program.
+
+        The structure file can be used to clone or recreate a program via
+        pardot_create_engagement_studio_program. Returns the file content as a
+        base64-encoded string.
+
+        Args:
+            program_id: The Engagement Studio program ID whose structure to download.
+
+        Returns:
+            A dict with 'programId' and 'structureFileBase64' (base64-encoded content),
+            or an error dict on failure.
+        """
+        try:
+            raw = download_engagement_studio_program_structure(program_id)
+            return {
+                "programId": program_id,
+                "structureFileBase64": base64.b64encode(raw).decode("utf-8"),
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    # =======================================================================
+    # Phase 1: Missing operations on existing objects
+    # =======================================================================
+
+    @mcp.tool()
+    def pardot_get_visitor_activity(activity_id: str) -> dict:
+        """Get a single Pardot visitor activity by ID.
+
+        Args:
+            activity_id: The visitor activity ID.
+
+        Returns:
+            The visitor activity as a dict, or an error dict on failure.
+        """
+        try:
+            return get_visitor_activity(
+                activity_id, fields=DEFAULT_VISITOR_ACTIVITY_FIELDS
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_tracker_domain(domain_id: str) -> dict:
+        """Get a single Pardot tracker domain by ID.
+
+        Args:
+            domain_id: The tracker domain ID.
+
+        Returns:
+            The tracker domain as a dict, or an error dict on failure.
+        """
+        try:
+            return get_tracker_domain(domain_id, fields=DEFAULT_TRACKER_DOMAIN_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_list_email_stats(list_email_id: str) -> dict:
+        """Get send statistics for a Pardot list email.
+
+        Args:
+            list_email_id: The list email ID.
+
+        Returns:
+            Stats dict with sent, delivered, opened, clicked, bounced, etc., or an error dict on failure.
+        """
+        try:
+            return get_list_email_stats(list_email_id)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # =======================================================================
+    # Phase 2: New read-only objects
+    # =======================================================================
+
+    # --- Visitors ---
+
+    @mcp.tool()
+    def pardot_query_visitors(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot visitors (website tracking records).
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of visitors to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with visitor data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_VISITOR_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_visitors(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_visitor(visitor_id: str) -> dict:
+        """Get a single Pardot visitor by ID.
+
+        Args:
+            visitor_id: The Pardot visitor ID.
+
+        Returns:
+            The visitor as a dict, or an error dict on failure.
+        """
+        try:
+            return get_visitor(visitor_id, fields=DEFAULT_VISITOR_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Visits ---
+
+    @mcp.tool()
+    def pardot_query_visits(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot visits (individual website sessions).
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of visits to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with visit data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_VISIT_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_visits(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_visit(visit_id: str) -> dict:
+        """Get a single Pardot visit by ID.
+
+        Args:
+            visit_id: The Pardot visit ID.
+
+        Returns:
+            The visit as a dict, or an error dict on failure.
+        """
+        try:
+            return get_visit(visit_id, fields=DEFAULT_VISIT_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Prospect Accounts ---
+
+    @mcp.tool()
+    def pardot_query_prospect_accounts(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot prospect accounts (company groupings).
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of accounts to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with prospect account data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_PROSPECT_ACCOUNT_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_prospect_accounts(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_prospect_account(account_id: str) -> dict:
+        """Get a single Pardot prospect account by ID.
+
+        Args:
+            account_id: The prospect account ID.
+
+        Returns:
+            The prospect account as a dict, or an error dict on failure.
+        """
+        try:
+            return get_prospect_account(
+                account_id, fields=DEFAULT_PROSPECT_ACCOUNT_FIELDS
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Opportunities ---
+
+    @mcp.tool()
+    def pardot_query_opportunities(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot opportunities (read-only).
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of opportunities to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with opportunity data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_OPPORTUNITY_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_opportunities(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_opportunity(opportunity_id: str) -> dict:
+        """Get a single Pardot opportunity by ID.
+
+        Args:
+            opportunity_id: The Pardot opportunity ID.
+
+        Returns:
+            The opportunity as a dict, or an error dict on failure.
+        """
+        try:
+            return get_opportunity(opportunity_id, fields=DEFAULT_OPPORTUNITY_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Lifecycle Stages ---
+
+    @mcp.tool()
+    def pardot_query_lifecycle_stages(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot lifecycle stages (funnel stages).
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of stages to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with lifecycle stage data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_LIFECYCLE_STAGE_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_lifecycle_stages(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_lifecycle_stage(stage_id: str) -> dict:
+        """Get a single Pardot lifecycle stage by ID.
+
+        Args:
+            stage_id: The lifecycle stage ID.
+
+        Returns:
+            The lifecycle stage as a dict, or an error dict on failure.
+        """
+        try:
+            return get_lifecycle_stage(stage_id, fields=DEFAULT_LIFECYCLE_STAGE_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Lifecycle Histories ---
+
+    @mcp.tool()
+    def pardot_query_lifecycle_histories(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot lifecycle histories (prospect stage transitions).
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of histories to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with lifecycle history data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_LIFECYCLE_HISTORY_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_lifecycle_histories(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_lifecycle_history(history_id: str) -> dict:
+        """Get a single Pardot lifecycle history by ID.
+
+        Args:
+            history_id: The lifecycle history ID.
+
+        Returns:
+            The lifecycle history as a dict, or an error dict on failure.
+        """
+        try:
+            return get_lifecycle_history(
+                history_id, fields=DEFAULT_LIFECYCLE_HISTORY_FIELDS
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Users ---
+
+    @mcp.tool()
+    def pardot_query_users(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot users.
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of users to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with user data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_USER_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_users(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_user(user_id: str) -> dict:
+        """Get a single Pardot user by ID.
+
+        Args:
+            user_id: The Pardot user ID.
+
+        Returns:
+            The user as a dict, or an error dict on failure.
+        """
+        try:
+            return get_user(user_id, fields=DEFAULT_USER_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Account (singleton) ---
+
+    @mcp.tool()
+    def pardot_get_account() -> dict:
+        """Get the Pardot account record (singleton — returns your account info).
+
+        Returns:
+            The account as a dict, or an error dict on failure.
+        """
+        try:
+            return get_account(fields=DEFAULT_ACCOUNT_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Folders ---
+
+    @mcp.tool()
+    def pardot_query_folders(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot folders.
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of folders to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with folder data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_FOLDER_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_folders(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_folder(folder_id: str) -> dict:
+        """Get a single Pardot folder by ID.
+
+        Args:
+            folder_id: The Pardot folder ID.
+
+        Returns:
+            The folder as a dict, or an error dict on failure.
+        """
+        try:
+            return get_folder(folder_id, fields=DEFAULT_FOLDER_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Folder Contents ---
+
+    @mcp.tool()
+    def pardot_query_folder_contents(
+        folder_id: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot folder contents (objects in folders).
+
+        Args:
+            folder_id: Filter by folder ID (empty for all).
+            limit: Maximum number of items to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with folder content data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": DEFAULT_FOLDER_CONTENT_FIELDS}
+            if folder_id:
+                params["folderId"] = folder_id
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_folder_contents(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # =======================================================================
+    # Phase 3: New CRUD objects (read portion)
+    # =======================================================================
+
+    # --- Custom Redirects ---
+
+    @mcp.tool()
+    def pardot_query_custom_redirects(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot custom redirects (tracked links).
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of redirects to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with custom redirect data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_CUSTOM_REDIRECT_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_custom_redirects(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_custom_redirect(redirect_id: str) -> dict:
+        """Get a single Pardot custom redirect by ID.
+
+        Args:
+            redirect_id: The custom redirect ID.
+
+        Returns:
+            The custom redirect as a dict, or an error dict on failure.
+        """
+        try:
+            return get_custom_redirect(
+                redirect_id, fields=DEFAULT_CUSTOM_REDIRECT_FIELDS
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Form Handlers ---
+
+    @mcp.tool()
+    def pardot_query_form_handlers(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot form handlers (third-party form integrations).
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of form handlers to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with form handler data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_FORM_HANDLER_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_form_handlers(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_form_handler(handler_id: str) -> dict:
+        """Get a single Pardot form handler by ID.
+
+        Args:
+            handler_id: The form handler ID.
+
+        Returns:
+            The form handler as a dict, or an error dict on failure.
+        """
+        try:
+            return get_form_handler(handler_id, fields=DEFAULT_FORM_HANDLER_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Form Handler Fields ---
+
+    @mcp.tool()
+    def pardot_query_form_handler_fields(
+        form_handler_id: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot form handler fields.
+
+        Args:
+            form_handler_id: Filter by form handler ID (empty for all).
+            limit: Maximum number of fields to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with form handler field data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": DEFAULT_FORM_HANDLER_FIELD_FIELDS}
+            if form_handler_id:
+                params["formHandlerId"] = form_handler_id
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_form_handler_fields(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_form_handler_field(field_id: str) -> dict:
+        """Get a single Pardot form handler field by ID.
+
+        Args:
+            field_id: The form handler field ID.
+
+        Returns:
+            The form handler field as a dict, or an error dict on failure.
+        """
+        try:
+            return get_form_handler_field(
+                field_id, fields=DEFAULT_FORM_HANDLER_FIELD_FIELDS
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Layout Templates ---
+
+    @mcp.tool()
+    def pardot_query_layout_templates(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot layout templates.
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of templates to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with layout template data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_LAYOUT_TEMPLATE_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_layout_templates(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_layout_template(template_id: str) -> dict:
+        """Get a single Pardot layout template by ID.
+
+        Args:
+            template_id: The layout template ID.
+
+        Returns:
+            The layout template as a dict, or an error dict on failure.
+        """
+        try:
+            return get_layout_template(
+                template_id, fields=DEFAULT_LAYOUT_TEMPLATE_FIELDS
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Files ---
+
+    @mcp.tool()
+    def pardot_query_files(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot files (uploaded assets).
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of files to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with file data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_FILE_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_files(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_file(file_id: str) -> dict:
+        """Get a single Pardot file by ID.
+
+        Args:
+            file_id: The Pardot file ID.
+
+        Returns:
+            The file metadata as a dict, or an error dict on failure.
+        """
+        try:
+            return get_file(file_id, fields=DEFAULT_FILE_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Landing Pages ---
+
+    @mcp.tool()
+    def pardot_query_landing_pages(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot landing pages.
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of landing pages to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with landing page data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_LANDING_PAGE_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_landing_pages(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_landing_page(page_id: str) -> dict:
+        """Get a single Pardot landing page by ID.
+
+        Args:
+            page_id: The landing page ID.
+
+        Returns:
+            The landing page as a dict, or an error dict on failure.
+        """
+        try:
+            return get_landing_page(page_id, fields=DEFAULT_LANDING_PAGE_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Dynamic Content ---
+
+    @mcp.tool()
+    def pardot_query_dynamic_contents(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot dynamic content.
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of items to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with dynamic content data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_DYNAMIC_CONTENT_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_dynamic_contents(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_dynamic_content(content_id: str) -> dict:
+        """Get a single Pardot dynamic content by ID.
+
+        Args:
+            content_id: The dynamic content ID.
+
+        Returns:
+            The dynamic content as a dict, or an error dict on failure.
+        """
+        try:
+            return get_dynamic_content(
+                content_id, fields=DEFAULT_DYNAMIC_CONTENT_FIELDS
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Dynamic Content Variations ---
+
+    @mcp.tool()
+    def pardot_query_dynamic_content_variations(
+        dynamic_content_id: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot dynamic content variations.
+
+        Args:
+            dynamic_content_id: Filter by dynamic content ID (empty for all).
+            limit: Maximum number of variations to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with variation data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": DEFAULT_DYNAMIC_CONTENT_VARIATION_FIELDS}
+            if dynamic_content_id:
+                params["dynamicContentId"] = dynamic_content_id
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_dynamic_content_variations(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_dynamic_content_variation(variation_id: str) -> dict:
+        """Get a single Pardot dynamic content variation by ID.
+
+        Args:
+            variation_id: The dynamic content variation ID.
+
+        Returns:
+            The variation as a dict, or an error dict on failure.
+        """
+        try:
+            return get_dynamic_content_variation(
+                variation_id, fields=DEFAULT_DYNAMIC_CONTENT_VARIATION_FIELDS
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    # --- Form Fields ---
+
+    @mcp.tool()
+    def pardot_query_form_fields(
+        form_id: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot form fields.
+
+        Args:
+            form_id: Filter by form ID (empty for all).
+            limit: Maximum number of fields to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with form field data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": DEFAULT_FORM_FIELD_FIELDS}
+            if form_id:
+                params["formId"] = form_id
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_form_fields(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_form_field(field_id: str) -> dict:
+        """Get a single Pardot form field by ID.
+
+        Args:
+            field_id: The form field ID.
+
+        Returns:
+            The form field as a dict, or an error dict on failure.
+        """
+        try:
+            return get_form_field(field_id, fields=DEFAULT_FORM_FIELD_FIELDS)
+        except Exception as e:
+            return {"error": str(e)}
+
+    # =======================================================================
+    # Phase 5: External Activities (read)
+    # =======================================================================
+
+    @mcp.tool()
+    def pardot_query_external_activities(
+        fields: str = "", limit: int = 200, cursor: str = ""
+    ) -> dict:
+        """Query Pardot external activities.
+
+        Args:
+            fields: Comma-separated field names to return (empty for defaults).
+            limit: Maximum number of activities to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with external activity data, or an error dict on failure.
+        """
+        try:
+            params = {"fields": fields or DEFAULT_EXTERNAL_ACTIVITY_FIELDS}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_external_activities(params)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_external_activity(activity_id: str) -> dict:
+        """Get a single Pardot external activity by ID.
+
+        Args:
+            activity_id: The external activity ID.
+
+        Returns:
+            The external activity as a dict, or an error dict on failure.
+        """
+        try:
+            return get_external_activity(
+                activity_id, fields=DEFAULT_EXTERNAL_ACTIVITY_FIELDS
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    # =======================================================================
+    # Phase 6: Export API (read)
+    # =======================================================================
+
+    @mcp.tool()
+    def pardot_query_exports(limit: int = 200, cursor: str = "") -> dict:
+        """Query Pardot export jobs.
+
+        Args:
+            limit: Maximum number of exports to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with export job data, or an error dict on failure.
+        """
+        try:
+            params = {}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_exports(params or None)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_export(export_id: str) -> dict:
+        """Get the status of a Pardot export job by ID.
+
+        Args:
+            export_id: The export job ID.
+
+        Returns:
+            The export job as a dict (including state, resultRefs), or an error dict on failure.
+        """
+        try:
+            return get_export(export_id)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_download_export_results(export_id: str) -> dict:
+        """Download the CSV results of a completed Pardot export.
+
+        Args:
+            export_id: The export job ID (must be in 'Complete' state).
+
+        Returns:
+            A dict with 'exportId' and 'csvBase64' (base64-encoded CSV), or an error dict on failure.
+        """
+        try:
+            raw = download_export_results(export_id)
+            return {
+                "exportId": export_id,
+                "csvBase64": base64.b64encode(raw).decode("utf-8"),
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    # =======================================================================
+    # Phase 7: Import API (read)
+    # =======================================================================
+
+    @mcp.tool()
+    def pardot_query_imports(limit: int = 200, cursor: str = "") -> dict:
+        """Query Pardot import jobs.
+
+        Args:
+            limit: Maximum number of imports to return (default 200).
+            cursor: Pagination cursor from a previous response's 'nextPageToken'.
+
+        Returns:
+            A dict with import job data, or an error dict on failure.
+        """
+        try:
+            params = {}
+            if limit != 200:
+                params["limit"] = limit
+            if cursor:
+                params["cursor"] = cursor
+            return query_imports(params or None)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_get_import(import_id: str) -> dict:
+        """Get the status of a Pardot import job by ID.
+
+        Args:
+            import_id: The import job ID.
+
+        Returns:
+            The import job as a dict (including state, batchesRef), or an error dict on failure.
+        """
+        try:
+            return get_import(import_id)
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.tool()
+    def pardot_download_import_errors(import_id: str) -> dict:
+        """Download error CSV from a Pardot import job.
+
+        Args:
+            import_id: The import job ID.
+
+        Returns:
+            A dict with 'importId' and 'csvBase64' (base64-encoded error CSV),
+            or an error dict on failure.
+        """
+        try:
+            raw = download_import_errors(import_id)
+            return {
+                "importId": import_id,
+                "csvBase64": base64.b64encode(raw).decode("utf-8"),
+            }
         except Exception as e:
             return {"error": str(e)}

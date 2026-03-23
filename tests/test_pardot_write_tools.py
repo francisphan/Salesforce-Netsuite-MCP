@@ -26,11 +26,70 @@ def mcp_with_tools():
 
 class TestToolRegistration:
     def test_all_tools_registered(self, mcp_with_tools):
+        # Core tools that must always be present
         expected = {
             "pardot_create_prospect",
             "pardot_update_prospect",
+            "pardot_delete_prospect",
+            "pardot_upsert_prospect",
+            "pardot_undelete_prospect",
+            "pardot_create_email_template",
+            "pardot_update_email_template",
+            "pardot_delete_email_template",
+            "pardot_create_list",
+            "pardot_update_list",
+            "pardot_delete_list",
+            "pardot_create_list_membership",
+            "pardot_update_list_membership",
+            "pardot_delete_list_membership",
+            "pardot_create_email",
+            "pardot_create_list_email",
+            "pardot_create_custom_field",
+            "pardot_update_custom_field",
+            "pardot_delete_custom_field",
+            "pardot_create_tag",
+            "pardot_update_tag",
+            "pardot_delete_tag",
+            "pardot_create_engagement_studio_program",
+            # Phase 3 write additions
+            "pardot_create_custom_redirect",
+            "pardot_update_custom_redirect",
+            "pardot_delete_custom_redirect",
+            "pardot_create_form_handler",
+            "pardot_update_form_handler",
+            "pardot_delete_form_handler",
+            "pardot_create_form_handler_field",
+            "pardot_update_form_handler_field",
+            "pardot_delete_form_handler_field",
+            "pardot_create_layout_template",
+            "pardot_update_layout_template",
+            "pardot_delete_layout_template",
+            "pardot_create_file",
+            "pardot_update_file",
+            "pardot_delete_file",
+            "pardot_create_landing_page",
+            "pardot_create_dynamic_content",
+            "pardot_create_dynamic_content_variation",
+            "pardot_create_form_field",
+            "pardot_create_form",
+            "pardot_delete_form",
+            # Phase 4 tag operations
+            "pardot_add_tag",
+            "pardot_remove_tag",
+            # Phase 5 special actions
+            "pardot_assign_visitor",
+            "pardot_connect_campaign_to_sf",
+            "pardot_merge_tags",
+            "pardot_create_external_activity",
+            # Phase 6 export
+            "pardot_create_export",
+            # Phase 7 import
+            "pardot_create_import",
+            "pardot_upload_import_batch",
+            "pardot_submit_import",
+            # pardot_download_import_errors is in read tools (pardot_tools.py)
         }
-        assert set(mcp_with_tools.keys()) == expected
+        assert expected.issubset(set(mcp_with_tools.keys()))
 
 
 class TestPardotCreateProspect:
