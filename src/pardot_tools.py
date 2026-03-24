@@ -89,7 +89,8 @@ DEFAULT_CAMPAIGN_FIELDS = "id,name,cost,folderId,salesforceId,createdAt,updatedA
 DEFAULT_FORM_FIELDS = "id,name,folderId,campaignId,trackerDomainId,createdAt,updatedAt"
 DEFAULT_EMAIL_TEMPLATE_FIELDS = (
     "id,name,subject,htmlMessage,textMessage,folderId,isOneToOneEmail,"
-    "isAutoResponderEmail,isDripEmail,isListEmail,type,campaignId,createdAt,updatedAt"
+    "isAutoResponderEmail,isDripEmail,isListEmail,type,campaignId,"
+    "senderOptions,replyToOptions,createdAt,updatedAt"
 )
 DEFAULT_VISITOR_ACTIVITY_FIELDS = (
     "id,prospectId,visitorId,type,typeName,details,emailId,formId,"
