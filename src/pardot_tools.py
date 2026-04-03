@@ -89,8 +89,7 @@ DEFAULT_CAMPAIGN_FIELDS = "id,name,cost,folderId,salesforceId,createdAt,updatedA
 DEFAULT_FORM_FIELDS = "id,name,folderId,campaignId,trackerDomainId,createdAt,updatedAt"
 DEFAULT_EMAIL_TEMPLATE_FIELDS = (
     "id,name,subject,htmlMessage,textMessage,folderId,isOneToOneEmail,"
-    "isAutoResponderEmail,isDripEmail,isListEmail,type,campaignId,"
-    "senderOptions,replyToOptions,createdAt,updatedAt"
+    "isAutoResponderEmail,isDripEmail,isListEmail,type,campaignId,createdAt,updatedAt"
 )
 DEFAULT_VISITOR_ACTIVITY_FIELDS = (
     "id,prospectId,visitorId,type,typeName,details,emailId,formId,"
@@ -161,7 +160,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_prospects(
-        fields: str = "", order_by: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", order_by: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot prospects with optional field selection and ordering.
 
@@ -169,7 +168,7 @@ def register_tools(mcp):
             fields: Comma-separated field names to return (empty for all default fields).
             order_by: Field name to sort results by (e.g. "createdAt", "lastActivityAt").
             limit: Maximum number of prospects to return (default 200).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
             A dict with prospect data and optionally 'nextPageToken' for pagination, or an error dict on failure.
@@ -180,8 +179,8 @@ def register_tools(mcp):
                 params["orderBy"] = order_by
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_prospects(params)
         except Exception as e:
             return {"error": str(e)}
@@ -203,7 +202,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_lists(
-        fields: str = "", order_by: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", order_by: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot static lists.
 
@@ -211,7 +210,7 @@ def register_tools(mcp):
             fields: Comma-separated field names to return (empty for all default fields).
             order_by: Field name to sort results by.
             limit: Maximum number of lists to return (default 200).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
             A dict with list data and optionally 'nextPageToken' for pagination, or an error dict on failure.
@@ -222,8 +221,8 @@ def register_tools(mcp):
                 params["orderBy"] = order_by
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_lists(params)
         except Exception as e:
             return {"error": str(e)}
@@ -245,17 +244,18 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_list_memberships(
-        list_id: str = "", prospect_id: str = "", cursor: str = ""
+        list_id: str = "", prospect_id: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot list memberships with optional filters.
 
         Args:
             list_id: Filter by list ID (empty for all).
             prospect_id: Filter by prospect ID (empty for all).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            limit: Maximum number of memberships to return (default 200, max 999).
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
-            A dict with membership data and optionally 'nextPageToken' for pagination, or an error dict on failure.
+            A dict with membership data. To paginate, pass max(id) from values as id_greater_than.
         """
         try:
             params = {"fields": DEFAULT_LIST_MEMBERSHIP_FIELDS}
@@ -263,15 +263,17 @@ def register_tools(mcp):
                 params["listId"] = list_id
             if prospect_id:
                 params["prospectId"] = prospect_id
-            if cursor:
-                params["cursor"] = cursor
+            if limit != 200:
+                params["limit"] = limit
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_list_memberships(params)
         except Exception as e:
             return {"error": str(e)}
 
     @mcp.tool()
     def pardot_query_campaigns(
-        fields: str = "", order_by: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", order_by: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot campaigns (read-only).
 
@@ -279,7 +281,7 @@ def register_tools(mcp):
             fields: Comma-separated field names to return (empty for all default fields).
             order_by: Field name to sort results by.
             limit: Maximum number of campaigns to return (default 200).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
             A dict with campaign data and optionally 'nextPageToken' for pagination, or an error dict on failure.
@@ -290,8 +292,8 @@ def register_tools(mcp):
                 params["orderBy"] = order_by
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_campaigns(params)
         except Exception as e:
             return {"error": str(e)}
@@ -314,45 +316,57 @@ def register_tools(mcp):
     @mcp.tool()
     def pardot_query_visitor_activities(
         prospect_id: str = "",
-        activity_type: str = "",
+        type: str = "",
+        created_after: str = "",
+        created_before: str = "",
+        campaign_id: str = "",
         limit: int = 200,
-        cursor: str = "",
+        id_greater_than: str = "",
     ) -> dict:
         """Query Pardot visitor activities with optional filters.
 
         Args:
             prospect_id: Filter by prospect ID (empty for all).
-            activity_type: Filter by activity type (e.g. "Visit", "Email", "Form").
-            limit: Maximum number of activities to return (default 200).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            type: Filter by numeric activity type. Common types: 3=form submission, 6=email sent, 11=email open, 12=email click, 35=unsubscribe, 36=hard bounce.
+            created_after: ISO date filter, e.g. "2026-03-01". Maps to createdAtAfterOrEqualTo.
+            created_before: ISO date filter, e.g. "2026-04-01". Maps to createdAtBefore.
+            campaign_id: Filter by Pardot campaign ID.
+            limit: Maximum number of activities to return (default 200, max 999).
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
-            A dict with activity data and optionally 'nextPageToken' for pagination, or an error dict on failure.
+            A dict with activity data. To paginate, pass max(id) from values as id_greater_than.
         """
         try:
             params = {"fields": DEFAULT_VISITOR_ACTIVITY_FIELDS}
             if prospect_id:
                 params["prospectId"] = prospect_id
-            if activity_type:
-                params["type"] = activity_type
+            if type:
+                params["type"] = type
+            if created_after:
+                params["createdAtAfterOrEqualTo"] = created_after
+            if created_before:
+                params["createdAtBefore"] = created_before
+            if campaign_id:
+                params["campaignId"] = campaign_id
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_visitor_activities(params)
         except Exception as e:
             return {"error": str(e)}
 
     @mcp.tool()
     def pardot_query_forms(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot forms.
 
         Args:
             fields: Comma-separated field names to return (empty for all default fields).
             limit: Maximum number of forms to return (default 200).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
             A dict with form data and optionally 'nextPageToken' for pagination, or an error dict on failure.
@@ -361,8 +375,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_FORM_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_forms(params)
         except Exception as e:
             return {"error": str(e)}
@@ -384,14 +398,14 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_tracker_domains(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot tracker domains.
 
         Args:
             fields: Comma-separated field names to return (empty for defaults).
             limit: Maximum number of results (default 200).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
             A dict with tracker domain data and optionally 'nextPageToken' for pagination, or an error dict on failure.
@@ -400,22 +414,22 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_TRACKER_DOMAIN_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_tracker_domains(params)
         except Exception as e:
             return {"error": str(e)}
 
     @mcp.tool()
     def pardot_query_email_templates(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot email templates.
 
         Args:
             fields: Comma-separated field names to return (empty for all default fields).
             limit: Maximum number of templates to return (default 200).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
             A dict with template data and optionally 'nextPageToken' for pagination, or an error dict on failure.
@@ -424,8 +438,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_EMAIL_TEMPLATE_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_email_templates(params)
         except Exception as e:
             return {"error": str(e)}
@@ -468,14 +482,14 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_emails(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot emails (one-to-one sends).
 
         Args:
             fields: Comma-separated field names to return (empty for defaults).
             limit: Maximum number of emails to return (default 200).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
             A dict with email data and optionally 'nextPageToken' for pagination, or an error dict on failure.
@@ -484,8 +498,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_EMAIL_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_emails(params)
         except Exception as e:
             return {"error": str(e)}
@@ -509,14 +523,14 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_list_emails(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot list emails (batch sends to lists).
 
         Args:
             fields: Comma-separated field names to return (empty for defaults).
             limit: Maximum number of list emails to return (default 200).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
             A dict with list email data and optionally 'nextPageToken' for pagination, or an error dict on failure.
@@ -525,8 +539,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_LIST_EMAIL_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_list_emails(params)
         except Exception as e:
             return {"error": str(e)}
@@ -550,14 +564,14 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_custom_fields(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot custom fields.
 
         Args:
             fields: Comma-separated field names to return (empty for defaults).
             limit: Maximum number of custom fields to return (default 200).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
             A dict with custom field data and optionally 'nextPageToken' for pagination, or an error dict on failure.
@@ -566,8 +580,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_CUSTOM_FIELD_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_custom_fields(params)
         except Exception as e:
             return {"error": str(e)}
@@ -590,13 +604,13 @@ def register_tools(mcp):
     # --- Tag Read ---
 
     @mcp.tool()
-    def pardot_query_tags(fields: str = "", limit: int = 200, cursor: str = "") -> dict:
+    def pardot_query_tags(fields: str = "", limit: int = 200, id_greater_than: str = "") -> dict:
         """Query Pardot tags.
 
         Args:
             fields: Comma-separated field names to return (empty for defaults).
             limit: Maximum number of tags to return (default 200).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
             A dict with tag data and optionally 'nextPageToken' for pagination, or an error dict on failure.
@@ -605,8 +619,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_TAG_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_tags(params)
         except Exception as e:
             return {"error": str(e)}
@@ -630,14 +644,14 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_tagged_objects(
-        tag_id: str = "", object_type: str = "", cursor: str = ""
+        tag_id: str = "", object_type: str = "", id_greater_than: str = ""
     ) -> dict:
         """Query Pardot tagged objects with optional filters.
 
         Args:
             tag_id: Filter by tag ID (empty for all).
             object_type: Filter by object type (empty for all).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
             A dict with tagged object data and optionally 'nextPageToken' for pagination, or an error dict on failure.
@@ -648,8 +662,8 @@ def register_tools(mcp):
                 params["tagId"] = tag_id
             if object_type:
                 params["objectType"] = object_type
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_tagged_objects(params)
         except Exception as e:
             return {"error": str(e)}
@@ -675,14 +689,14 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_engagement_studio_programs(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot Engagement Studio programs.
 
         Args:
             fields: Comma-separated field names to return (empty for all default fields).
             limit: Maximum number of programs to return (default 200).
-            cursor: Pagination cursor from a previous response's 'nextPageToken' to fetch the next page.
+            id_greater_than: For pagination, pass the max 'id' from the previous page's values. More reliable than nextPageToken (which silently fails on dynamic lists).
 
         Returns:
             A dict with program data and optionally 'nextPageToken' for pagination, or an error dict on failure.
@@ -691,8 +705,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_ENGAGEMENT_STUDIO_PROGRAM_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_engagement_studio_programs(params)
         except Exception as e:
             return {"error": str(e)}
@@ -797,7 +811,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_visitors(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot visitors (website tracking records).
 
@@ -813,8 +827,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_VISITOR_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_visitors(params)
         except Exception as e:
             return {"error": str(e)}
@@ -838,7 +852,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_visits(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot visits (individual website sessions).
 
@@ -854,8 +868,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_VISIT_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_visits(params)
         except Exception as e:
             return {"error": str(e)}
@@ -879,7 +893,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_prospect_accounts(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot prospect accounts (company groupings).
 
@@ -895,8 +909,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_PROSPECT_ACCOUNT_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_prospect_accounts(params)
         except Exception as e:
             return {"error": str(e)}
@@ -922,7 +936,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_opportunities(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot opportunities (read-only).
 
@@ -938,8 +952,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_OPPORTUNITY_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_opportunities(params)
         except Exception as e:
             return {"error": str(e)}
@@ -963,7 +977,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_lifecycle_stages(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot lifecycle stages (funnel stages).
 
@@ -979,8 +993,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_LIFECYCLE_STAGE_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_lifecycle_stages(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1004,7 +1018,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_lifecycle_histories(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot lifecycle histories (prospect stage transitions).
 
@@ -1020,8 +1034,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_LIFECYCLE_HISTORY_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_lifecycle_histories(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1047,7 +1061,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_users(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot users.
 
@@ -1063,8 +1077,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_USER_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_users(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1102,7 +1116,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_folders(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot folders.
 
@@ -1118,8 +1132,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_FOLDER_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_folders(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1143,7 +1157,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_folder_contents(
-        folder_id: str = "", limit: int = 200, cursor: str = ""
+        folder_id: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot folder contents (objects in folders).
 
@@ -1161,8 +1175,8 @@ def register_tools(mcp):
                 params["folderId"] = folder_id
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_folder_contents(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1175,7 +1189,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_custom_redirects(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot custom redirects (tracked links).
 
@@ -1191,8 +1205,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_CUSTOM_REDIRECT_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_custom_redirects(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1218,7 +1232,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_form_handlers(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot form handlers (third-party form integrations).
 
@@ -1234,8 +1248,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_FORM_HANDLER_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_form_handlers(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1259,7 +1273,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_form_handler_fields(
-        form_handler_id: str = "", limit: int = 200, cursor: str = ""
+        form_handler_id: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot form handler fields.
 
@@ -1277,8 +1291,8 @@ def register_tools(mcp):
                 params["formHandlerId"] = form_handler_id
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_form_handler_fields(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1304,7 +1318,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_layout_templates(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot layout templates.
 
@@ -1320,8 +1334,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_LAYOUT_TEMPLATE_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_layout_templates(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1347,7 +1361,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_files(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot files (uploaded assets).
 
@@ -1363,8 +1377,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_FILE_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_files(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1388,7 +1402,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_landing_pages(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot landing pages.
 
@@ -1404,8 +1418,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_LANDING_PAGE_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_landing_pages(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1429,7 +1443,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_dynamic_contents(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot dynamic content.
 
@@ -1445,8 +1459,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_DYNAMIC_CONTENT_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_dynamic_contents(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1472,7 +1486,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_dynamic_content_variations(
-        dynamic_content_id: str = "", limit: int = 200, cursor: str = ""
+        dynamic_content_id: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot dynamic content variations.
 
@@ -1490,8 +1504,8 @@ def register_tools(mcp):
                 params["dynamicContentId"] = dynamic_content_id
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_dynamic_content_variations(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1517,7 +1531,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_form_fields(
-        form_id: str = "", limit: int = 200, cursor: str = ""
+        form_id: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot form fields.
 
@@ -1535,8 +1549,8 @@ def register_tools(mcp):
                 params["formId"] = form_id
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_form_fields(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1562,7 +1576,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def pardot_query_external_activities(
-        fields: str = "", limit: int = 200, cursor: str = ""
+        fields: str = "", limit: int = 200, id_greater_than: str = ""
     ) -> dict:
         """Query Pardot external activities.
 
@@ -1578,8 +1592,8 @@ def register_tools(mcp):
             params = {"fields": fields or DEFAULT_EXTERNAL_ACTIVITY_FIELDS}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_external_activities(params)
         except Exception as e:
             return {"error": str(e)}
@@ -1606,7 +1620,7 @@ def register_tools(mcp):
     # =======================================================================
 
     @mcp.tool()
-    def pardot_query_exports(limit: int = 200, cursor: str = "") -> dict:
+    def pardot_query_exports(limit: int = 200, id_greater_than: str = "") -> dict:
         """Query Pardot export jobs.
 
         Args:
@@ -1620,8 +1634,8 @@ def register_tools(mcp):
             params = {}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_exports(params or None)
         except Exception as e:
             return {"error": str(e)}
@@ -1665,7 +1679,7 @@ def register_tools(mcp):
     # =======================================================================
 
     @mcp.tool()
-    def pardot_query_imports(limit: int = 200, cursor: str = "") -> dict:
+    def pardot_query_imports(limit: int = 200, id_greater_than: str = "") -> dict:
         """Query Pardot import jobs.
 
         Args:
@@ -1679,8 +1693,8 @@ def register_tools(mcp):
             params = {}
             if limit != 200:
                 params["limit"] = limit
-            if cursor:
-                params["cursor"] = cursor
+            if id_greater_than:
+                params["idGreaterThan"] = id_greater_than
             return query_imports(params or None)
         except Exception as e:
             return {"error": str(e)}

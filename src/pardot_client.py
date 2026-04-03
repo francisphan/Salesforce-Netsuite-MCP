@@ -604,17 +604,21 @@ def _convert_hml_to_pardot_tags(html: str) -> str:
     """Convert Handlebars (HML) merge tags to legacy Pardot %%variable%% tags.
 
     The Pardot v5 API requires legacy variable tags even though the UI supports HML.
+    Conditional blocks ({{#if}}/{{#unless}}) are NOT supported by the Pardot v5 API
+    in any PML syntax, so we collapse the if-branch and strip the unless-branch,
+    replacing {{Recipient.FirstName}} with %%first_name%%.
     """
     import re
     # Unsubscribe / preference center
     html = html.replace("{{EmailPreferenceCenter}}", "%%email_preference_center%%")
     html = html.replace("{{UnsubscribeLink}}", "%%unsubscribe%%")
     # Conditional first name: {{#if Recipient.FirstName}}...{{/if}}{{#unless Recipient.FirstName}}...{{/unless}}
-    # Convert to: %%if:first_name%%...%%end%%...%%else:%%...%%end%%
-    # Handle the if/unless pattern used for greetings
+    # Pardot v5 API rejects all conditional PML syntax (%%if:%%, %%#if:%%, etc.).
+    # Collapse to just the if-branch content; the unless-branch is dropped.
+    # {{Recipient.FirstName}} inside the kept branch is converted to %%first_name%% below.
     html = re.sub(
         r'\{\{#if Recipient\.FirstName\}\}(.*?)\{\{/if\}\}\{\{#unless Recipient\.FirstName\}\}(.*?)\{\{/unless\}\}',
-        r'%%if:first_name%%\1%%else:%%\2%%end%%',
+        r'\1',
         html,
         flags=re.DOTALL,
     )
@@ -745,7 +749,12 @@ def _get_v5(endpoint: str, params: dict | None = None) -> dict | list:
 
     def _do(session):
         resp = session.get(f"{BASE_URL_V5}/{endpoint}", params=params)
-        resp.raise_for_status()
+        if not resp.ok:
+            try:
+                detail = resp.json()
+            except Exception:
+                detail = resp.text[:500]
+            raise RuntimeError(f"{resp.status_code} {resp.reason}: {detail}")
         return resp.json()
 
     return _with_retry(_do)
@@ -757,7 +766,12 @@ def _post_v5(endpoint: str, body: dict) -> dict:
 
     def _do(session):
         resp = session.post(f"{BASE_URL_V5}/{endpoint}", json=body)
-        resp.raise_for_status()
+        if not resp.ok:
+            try:
+                detail = resp.json()
+            except Exception:
+                detail = resp.text[:500]
+            raise RuntimeError(f"{resp.status_code} {resp.reason}: {detail}")
         return resp.json()
 
     return _with_retry(_do)
@@ -1346,10 +1360,11 @@ def upload_import_batch(import_id: str, csv_bytes: bytes) -> dict:
         try:
             resp = session.post(
                 f"{BASE_URL_V5}/{endpoint}",
-                files={"data": ("batch.csv", csv_bytes, "text/csv")},
+                files={"file": ("batch.csv", csv_bytes, "text/csv")},
             )
             resp.raise_for_status()
-            return resp.json()
+            # 204 No Content on success
+            return resp.json() if resp.content else {"status": "ok"}
         finally:
             if original_ct:
                 session.headers["Content-Type"] = original_ct
@@ -1358,8 +1373,8 @@ def upload_import_batch(import_id: str, csv_bytes: bytes) -> dict:
 
 
 def submit_import(import_id: str) -> dict:
-    """PATCH /imports/{id} — set state to 'Ready' to begin processing."""
-    return _patch_v5(f"imports/{import_id}", {"state": "Ready"})
+    """PATCH /imports/{id} — set status to 'Ready' to begin processing."""
+    return _patch_v5(f"imports/{import_id}", {"status": "Ready"})
 
 
 def download_import_errors(import_id: str) -> bytes:
