@@ -1,4 +1,4 @@
-"""MCP server entrypoint for Salesforce & NetSuite tools."""
+"""Agent B — MCP server exposing Salesforce, NetSuite, and Pardot tools."""
 
 import hmac
 import json
@@ -51,7 +51,7 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
 
 
 mcp = FastMCP(
-    "Salesforce, NetSuite & Pardot",
+    "Agent B",
     host=os.getenv("MCP_HOST", "0.0.0.0"),
     port=int(os.getenv("MCP_PORT", "8000")),
 )
